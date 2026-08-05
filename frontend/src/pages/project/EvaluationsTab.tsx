@@ -1,0 +1,499 @@
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { ArrowRight, CheckIcon, Loader2, Play, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
+
+import {
+  evaluationPromptsApi,
+  evaluationsApi,
+  providersApi,
+  systemPromptsApi,
+  testCasesApi,
+} from "@/api"
+import type {
+  EvaluationPrompt,
+  EvaluationRun,
+  ProviderConfig,
+  RunStatus,
+  SystemPrompt,
+  TestCase,
+} from "@/api/types"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { ConfirmDialog } from "@/components/ConfirmDialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
+import { formatDateTime, formatRelativeTime } from "@/lib/utils"
+
+const statusVariant: Record<
+  RunStatus,
+  "warning" | "info" | "success" | "destructive"
+> = {
+  pending: "warning",
+  running: "info",
+  completed: "success",
+  failed: "destructive",
+}
+
+export function EvaluationsTab({ projectId }: { projectId: string }) {
+  const navigate = useNavigate()
+  const [runs, setRuns] = useState<EvaluationRun[] | null>(null)
+  const [error, setError] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const [sysPrompts, setSysPrompts] = useState<SystemPrompt[]>([])
+  const [evalPrompts, setEvalPrompts] = useState<EvaluationPrompt[]>([])
+  const [providers, setProviders] = useState<ProviderConfig[]>([])
+  const [testCases, setTestCases] = useState<TestCase[]>([])
+  const [disabledTc, setDisabledTc] = useState<Set<string>>(new Set())
+
+  const [systemPromptId, setSystemPromptId] = useState("")
+  const [evaluationPromptId, setEvaluationPromptId] = useState("")
+  const [targetProviderId, setTargetProviderId] = useState("")
+  const [targetModel, setTargetModel] = useState("")
+  const [evaluatorProviderId, setEvaluatorProviderId] = useState("")
+  const [evaluatorModel, setEvaluatorModel] = useState("")
+  const [threshold, setThreshold] = useState("0.8")
+
+  const load = async () => {
+    setError(false)
+    try {
+      setRuns(null)
+      const data = await evaluationsApi.list(projectId)
+      setRuns(data)
+    } catch (err) {
+      setError(true)
+      toast.error(err instanceof Error ? err.message : "Failed to load")
+    }
+  }
+
+  const loadFormOptions = async () => {
+    try {
+      const [sp, ep, pv, tc] = await Promise.all([
+        systemPromptsApi.list(projectId),
+        evaluationPromptsApi.list(projectId),
+        providersApi.list(),
+        testCasesApi.list(projectId),
+      ])
+      setSysPrompts(sp)
+      setEvalPrompts(ep)
+      setProviders(pv)
+      setTestCases(tc)
+      setDisabledTc(new Set())
+      if (sp.length > 0) setSystemPromptId(sp[0].id)
+      if (ep.length > 0) setEvaluationPromptId(ep[0].id)
+      if (pv.length > 0) {
+        setTargetProviderId(pv[0].id)
+        setEvaluatorProviderId(pv[0].id)
+      }
+    } catch {
+      // ignore; toast handled by callers
+    }
+  }
+
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId])
+
+  const openDialog = async () => {
+    await loadFormOptions()
+    setOpen(true)
+  }
+
+  const handleCreate = async () => {
+    if (
+      !systemPromptId ||
+      !evaluationPromptId ||
+      !targetProviderId ||
+      !evaluatorProviderId ||
+      !targetModel.trim() ||
+      !evaluatorModel.trim()
+    ) {
+      return
+    }
+    const enabledCount = testCases.length - disabledTc.size
+    if (enabledCount === 0) {
+      toast.error("Enable at least one test case to run")
+      return
+    }
+    setSaving(true)
+    try {
+      await evaluationsApi.create(projectId, {
+        system_prompt_id: systemPromptId,
+        evaluation_prompt_id: evaluationPromptId,
+        target_provider_id: targetProviderId,
+        target_model: targetModel.trim(),
+        evaluator_provider_id: evaluatorProviderId,
+        evaluator_model: evaluatorModel.trim(),
+        pass_threshold: Number.parseFloat(threshold) || 0,
+        blacklisted_test_case_ids: Array.from(disabledTc),
+      })
+      toast.success("Evaluation run started")
+      setOpen(false)
+      void load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start run")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteId) return
+    try {
+      setDeleting(true)
+      await evaluationsApi.remove(projectId, deleteId)
+      toast.success("Evaluation run deleted")
+      setDeleteId(null)
+      void load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete run")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const ready =
+    sysPrompts.length > 0 &&
+    evalPrompts.length > 0 &&
+    providers.length > 0 &&
+    testCases.length > 0
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-medium">Evaluation runs</h3>
+          <p className="text-muted-foreground text-sm">
+            Async runs graded against the configured rubric.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={openDialog}>
+          <Plus className="size-4" />
+          New run
+        </Button>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Start evaluation run</DialogTitle>
+            <DialogDescription>
+              Select prompts, providers, models, and a pass threshold.
+            </DialogDescription>
+          </DialogHeader>
+          {!ready ? (
+            <div className="text-muted-foreground rounded-md border border-dashed p-6 text-center text-sm">
+              You need at least one system prompt, one evaluation prompt, and one
+              provider before starting a run.
+            </div>
+          ) : (
+            <div className="flex w-full min-w-0 flex-col gap-4">
+              <FormField label="System prompt">
+                  <Select
+                    value={systemPromptId}
+                    onValueChange={setSystemPromptId}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select version" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sysPrompts.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          v{p.version}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+                <FormField label="Evaluation prompt">
+                  <Select
+                    value={evaluationPromptId}
+                    onValueChange={setEvaluationPromptId}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select version" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {evalPrompts.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          v{p.version}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+                <FormField label="Target provider">
+                  <Select
+                    value={targetProviderId}
+                    onValueChange={setTargetProviderId}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {providers.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+                <FormField label="Target model">
+                  <Input
+                    value={targetModel}
+                    onChange={(e) => setTargetModel(e.target.value)}
+                    placeholder="gpt-4o-mini"
+                  />
+                </FormField>
+                <FormField label="Evaluator provider">
+                  <Select
+                    value={evaluatorProviderId}
+                    onValueChange={setEvaluatorProviderId}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {providers.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+                <FormField label="Evaluator model">
+                  <Input
+                    value={evaluatorModel}
+                    onChange={(e) => setEvaluatorModel(e.target.value)}
+                    placeholder="gpt-4o"
+                  />
+                </FormField>
+              <FormField label="Pass threshold (0.0 – 1.0)">
+                <Input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={threshold}
+                  onChange={(e) => setThreshold(e.target.value)}
+                />
+              </FormField>
+
+              <div className="flex w-full min-w-0 flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <Label>Test cases</Label>
+                  <span className="text-muted-foreground text-xs">
+                    {testCases.length - disabledTc.size} of {testCases.length}{" "}
+                    enabled
+                  </span>
+                </div>
+                <div className="flex max-h-64 w-full min-w-0 flex-col gap-1.5 overflow-y-auto">
+                  {testCases.map((tc) => {
+                    const enabled = !disabledTc.has(tc.id)
+                    return (
+                      <button
+                        key={tc.id}
+                        type="button"
+                        onClick={() =>
+                          setDisabledTc((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(tc.id)) next.delete(tc.id)
+                            else next.add(tc.id)
+                            return next
+                          })
+                        }
+                        className={
+                          "flex w-full min-w-0 items-start gap-2 rounded-md border px-3 py-2 text-left transition-colors " +
+                          (enabled
+                            ? "border-border hover:bg-accent/40"
+                            : "border-transparent bg-muted/30 opacity-60 hover:opacity-100")
+                        }
+                      >
+                        <span
+                          className={
+                            "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border " +
+                            (enabled
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-input bg-background")
+                          }
+                        >
+                          {enabled && <CheckIcon className="size-3" />}
+                        </span>
+                        <p className="min-w-0 flex-1 truncate text-xs">
+                          {tc.input_prompt}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-muted-foreground text-[11px]">
+                  All test cases run by default. Tap a row to disable (exclude)
+                  it from this run.
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={saving || !ready}>
+              {saving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Play className="size-4" />
+              )}
+              Start run
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {runs === null && !error && (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 rounded-xl" />
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <Card>
+          <CardContent className="flex items-center justify-between py-6">
+            <p className="text-muted-foreground text-sm">Failed to load.</p>
+            <Button variant="outline" size="sm" onClick={load}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {runs !== null && runs.length === 0 && !error && (
+        <Card>
+          <CardContent className="text-muted-foreground py-10 text-center text-sm">
+            No evaluation runs yet.
+          </CardContent>
+        </Card>
+      )}
+
+      {runs !== null && runs.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {runs.map((run) => (
+            <Card
+              key={run.id}
+              className="hover:border-primary/40 group cursor-pointer transition-all"
+              onClick={() =>
+                navigate(`/projects/${projectId}/evaluations/${run.id}`)
+              }
+            >
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    {run.target_model}
+                    <span className="text-muted-foreground">vs</span>
+                    {run.evaluator_model}
+                  </CardTitle>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeleteId(run.id)
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                    <ArrowRight className="text-muted-foreground group-hover:text-primary size-4 transition-colors" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-wrap items-center gap-2">
+                <Badge variant={statusVariant[run.status]}>{run.status}</Badge>
+                {run.status === "completed" && (
+                  <Badge variant={run.is_passed ? "success" : "destructive"}>
+                    {run.is_passed ? "Passed" : "Failed"}
+                  </Badge>
+                )}
+                {run.average_score !== null && (
+                  <Badge variant="outline">
+                    avg {run.average_score.toFixed(2)}
+                  </Badge>
+                )}
+                <Badge variant="outline">
+                  threshold {run.pass_threshold.toFixed(2)}
+                </Badge>
+                <span
+                  className="text-muted-foreground ml-auto text-[11px]"
+                  title={formatDateTime(run.created_at)}
+                >
+                  {formatRelativeTime(run.created_at)}
+                </span>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title="Delete evaluation run?"
+        description="This permanently deletes the run and all its results. This cannot be undone."
+        confirmLabel="Delete run"
+        destructive
+        loading={deleting}
+        onConfirm={handleDelete}
+      />
+    </div>
+  )
+}
+
+function FormField({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex w-full min-w-0 flex-col gap-2">
+      <Label>{label}</Label>
+      {children}
+    </div>
+  )
+}

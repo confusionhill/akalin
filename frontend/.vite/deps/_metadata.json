@@ -1,0 +1,42 @@
+{
+  "hash": "748df376",
+  "configHash": "0bf4a2a4",
+  "lockfileHash": "c6420fa3",
+  "browserHash": "70caa568",
+  "optimized": {
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "2e8e187a",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.mjs",
+      "file": "react-router-dom.js",
+      "fileHash": "8f27448e",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "7a92dcc3",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "1b10b933",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "react-dom-CVUXoGTx": {
+      "file": "react-dom-CVUXoGTx.js",
+      "isDynamicEntry": false
+    },
+    "rolldown-runtime-FDOR9p9I": {
+      "file": "rolldown-runtime-FDOR9p9I.js",
+      "isDynamicEntry": false
+    }
+  }
+}
