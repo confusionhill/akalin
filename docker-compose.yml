@@ -28,12 +28,8 @@ services:
       - "8080:8080"
     environment:
       PORT: "8080"
-      DB_HOST: db
-      DB_PORT: "5432"
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: llm_eval
-      SSL_MODE: disable
+      DATABASE_URL: "postgres://postgres:postgres@db:5432/llm_eval?sslmode=disable"
+      JWT_SIGNING_KEY: "dev-secret-key-change-this-in-production"
     depends_on:
       db:
         condition: service_healthy

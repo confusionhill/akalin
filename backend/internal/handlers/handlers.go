@@ -6,22 +6,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/config"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/auth"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/auth"
 
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/evaluator"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
 )
 
 type Handler struct {
-	DB *sqlx.DB
+	Cfg *config.Config
+	DB  *sqlx.DB
 }
 
-func NewHandler(db *sqlx.DB) *Handler {
-	return &Handler{DB: db}
+func NewHandler(cfg *config.Config, db *sqlx.DB) *Handler {
+	return &Handler{Cfg: cfg, DB: db}
 }
 
 // getAuth extracts user context from JWT token
@@ -39,7 +41,7 @@ func (h *Handler) getAuth(c echo.Context) (uuid.UUID, uuid.UUID, error) {
 	}
 
 	// Validate JWT token
-	jwtManager := auth.NewJWTManager("your-secret-key-here-change-in-production", 60)
+	jwtManager := auth.NewJWTManager(h.Cfg.JWTSigningKey, int(h.Cfg.JWTExpiration))
 	claims, err := jwtManager.ValidateToken(tokenString)
 	if err != nil {
 		return uuid.Nil, uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
@@ -98,16 +100,16 @@ func (h *Handler) Login(c echo.Context) error {
 	}
 
 	// Generate JWT token
-	jwtManager := auth.NewJWTManager("your-secret-key-here-change-in-production", 60)
+	jwtManager := auth.NewJWTManager(h.Cfg.JWTSigningKey, int(h.Cfg.JWTExpiration))
 	token, err := jwtManager.GenerateToken(user.TenantID, user.ID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate token")
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"id":        user.ID,
-		"email":     user.Email,
-		"token":     token,
+		"id":    user.ID,
+		"email": user.Email,
+		"token": token,
 	})
 }
 
@@ -158,16 +160,16 @@ func (h *Handler) Register(c echo.Context) error {
 	}
 
 	// Generate JWT token
-	jwtManager := auth.NewJWTManager("your-secret-key-here-change-in-production", 60)
+	jwtManager := auth.NewJWTManager(h.Cfg.JWTSigningKey, int(h.Cfg.JWTExpiration))
 	token, err := jwtManager.GenerateToken(user.TenantID, user.ID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate token")
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
-		"id":        user.ID,
-		"email":     user.Email,
-		"token":     token,
+		"id":    user.ID,
+		"email": user.Email,
+		"token": token,
 	})
 }
 

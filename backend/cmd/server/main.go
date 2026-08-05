@@ -3,14 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"strconv"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/config"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/db"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/handlers"
 	authMW "github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/middleware"
@@ -23,47 +22,15 @@ func main() {
 		log.Println("No .env file found, using system environment variables")
 	}
 
-	port := os.Getenv("PORT")
+	cfg := config.Load()
+
+	port := cfg.Port
 	if port == "" {
 		port = "8080"
 	}
 
-	dbHost := os.Getenv("DB_HOST")
-	if dbHost == "" {
-		dbHost = "localhost"
-	}
-
-	dbPortStr := os.Getenv("DB_PORT")
-	if dbPortStr == "" {
-		dbPortStr = "5432"
-	}
-	dbPort, err := strconv.Atoi(dbPortStr)
-	if err != nil {
-		log.Fatalf("Invalid DB_PORT: %v", err)
-	}
-
-	dbUser := os.Getenv("DB_USER")
-	if dbUser == "" {
-		dbUser = "postgres"
-	}
-
-	dbPassword := os.Getenv("DB_PASSWORD")
-	if dbPassword == "" {
-		dbPassword = "postgres"
-	}
-
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "llm_eval"
-	}
-
-	sslMode := os.Getenv("SSL_MODE")
-	if sslMode == "" {
-		sslMode = "disable"
-	}
-
 	// Connect to Database
-	dbConn, err := db.Connect(dbHost, dbPort, dbUser, dbPassword, dbName, sslMode)
+	dbConn, err := db.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -91,7 +58,7 @@ func main() {
 	e.Use(authMiddleware.RequireAuth)
 
 	// Register Routes
-	h := handlers.NewHandler(dbConn)
+	h := handlers.NewHandler(cfg, dbConn)
 
 	api := e.Group("/api")
 
