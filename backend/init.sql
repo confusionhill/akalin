@@ -81,7 +81,27 @@ CREATE TABLE provider_configs (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8. Evaluation Runs table
+-- 8. Tools table (Tenant-scoped global mock tools)
+CREATE TABLE tools (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    result TEXT NOT NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 9. Project Tools junction table
+CREATE TABLE project_tools (
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    tool_id UUID REFERENCES tools(id) ON DELETE CASCADE,
+    PRIMARY KEY (project_id, tool_id)
+);
+
+-- 10. Evaluation Runs table
 CREATE TABLE evaluation_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
@@ -98,13 +118,14 @@ CREATE TABLE evaluation_runs (
     average_score NUMERIC(3,2),
     failure_reason TEXT,
     blacklisted_test_case_ids JSONB DEFAULT '[]'::jsonb,
+    blacklisted_tool_ids JSONB DEFAULT '[]'::jsonb,
     enable_memory BOOLEAN DEFAULT false,
     run_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
--- 9. Evaluation Results table (Granular test case executions)
+-- 11. Evaluation Results table (Granular test case executions)
 CREATE TABLE evaluation_results (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     run_id UUID REFERENCES evaluation_runs(id) ON DELETE CASCADE,
@@ -113,6 +134,7 @@ CREATE TABLE evaluation_results (
     score NUMERIC(3,2),
     is_passed BOOLEAN,
     evaluator_reasoning TEXT,
+    tools_called JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -122,6 +144,8 @@ CREATE INDEX idx_system_prompts_project ON system_prompts(project_id);
 CREATE INDEX idx_evaluation_prompts_project ON evaluation_prompts(project_id);
 CREATE INDEX idx_test_cases_project ON test_cases(project_id);
 CREATE INDEX idx_provider_configs_tenant ON provider_configs(tenant_id);
+CREATE INDEX idx_tools_tenant ON tools(tenant_id);
+CREATE INDEX idx_project_tools_project ON project_tools(project_id);
 CREATE INDEX idx_evaluation_runs_project ON evaluation_runs(project_id);
 CREATE INDEX idx_evaluation_results_run ON evaluation_results(run_id);
 
@@ -142,3 +166,38 @@ VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-0000000
 UPDATE tenants 
 SET master_user_id = '00000000-0000-0000-0000-000000000002' 
 WHERE id = '00000000-0000-0000-0000-000000000001';
+
+-- Seed Global Mock Tools
+INSERT INTO tools (id, tenant_id, name, description, result, created_by)
+VALUES 
+('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'get_weather', 'Get current weather for a location', '{"temperature": 72, "unit": "F", "condition": "Sunny"}', '00000000-0000-0000-0000-000000000002'),
+('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'calculator', 'Perform basic mathematical calculations', '{"result": 42}', '00000000-0000-0000-0000-000000000002'),
+('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 'search_database', 'Search customer database by query', '{"records": [{"id": 1, "name": "John Doe", "status": "active"}]}', '00000000-0000-0000-0000-000000000002');
+
+-- Seed Mock Project for Tool Calling Evaluation
+INSERT INTO projects (id, tenant_id, name, description, created_by)
+VALUES 
+('20000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Tool Calling Evaluation', 'Project to evaluate LLM tool calling behavior and prompt instruction adherence.', '00000000-0000-0000-0000-000000000002');
+
+-- Link Tools to Project
+INSERT INTO project_tools (project_id, tool_id)
+VALUES 
+('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001'),
+('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002');
+
+-- Seed System Prompt for Tool Calling Project
+INSERT INTO system_prompts (id, project_id, content, version, created_by)
+VALUES 
+('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'You are an AI assistant equipped with tools. Use the get_weather tool when asked about weather, and calculator for math calculations. If a request does not require tools, answer directly without invoking tools.', 1, '00000000-0000-0000-0000-000000000002');
+
+-- Seed Evaluation Prompt for Tool Calling Project
+INSERT INTO evaluation_prompts (id, project_id, content, version, created_by)
+VALUES 
+('40000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'Grade the response on a scale of 0.0 to 1.0 based on correctness, appropriate tool usage, and conciseness.', 1, '00000000-0000-0000-0000-000000000002');
+
+-- Seed Test Cases for Tool Calling Project
+INSERT INTO test_cases (id, project_id, input_prompt, expected_output, created_by)
+VALUES 
+('50000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'What is the current weather in San Francisco?', 'The current weather in San Francisco is 72°F and Sunny.', '00000000-0000-0000-0000-000000000002'),
+('50000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', 'Write a short poem about the ocean.', 'Waves whisper soft upon the golden shore...', '00000000-0000-0000-0000-000000000002');
+

@@ -8,6 +8,7 @@ import { LoginPage } from "@/pages/Login"
 import { RegisterPage } from "@/pages/Register"
 import { ProjectsPage } from "@/pages/Projects"
 import { ProvidersPage } from "@/pages/Providers"
+import { ToolsPage } from "@/pages/Tools"
 import { ProjectDetailPage } from "@/pages/project/ProjectDetail"
 import { EvaluationDetailPage } from "@/pages/project/EvaluationDetail"
 
@@ -27,12 +28,14 @@ export default function App() {
           >
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/providers" element={<ProvidersPage />} />
+            <Route path="/tools" element={<ToolsPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />
             <Route
               path="/projects/:id/evaluations/:runId"
               element={<EvaluationDetailPage />}
             />
           </Route>
+
           <Route path="/" element={<Navigate to="/projects" replace />} />
           <Route path="*" element={<Navigate to="/projects" replace />} />
         </Routes>

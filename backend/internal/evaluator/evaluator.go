@@ -125,6 +125,31 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 	}
 	log.Printf("%s running %d test cases (blacklisted: %d)", logPrefix, len(testCases), len(blacklist))
 
+	// Fetch project tools & filter blacklisted tools
+	var projectTools []models.Tool
+	toolQuery := `
+		SELECT t.* FROM tools t
+		JOIN project_tools pt ON t.id = pt.tool_id
+		WHERE pt.project_id = $1
+	`
+	err = db.Select(&projectTools, toolQuery, run.ProjectID)
+	if err != nil {
+		log.Printf("%s warning fetching project tools: %v", logPrefix, err)
+		projectTools = []models.Tool{}
+	}
+
+	toolBlacklist := make(map[string]bool, len(run.BlacklistedToolIDs))
+	for _, id := range run.BlacklistedToolIDs {
+		toolBlacklist[id] = true
+	}
+	var activeTools []models.Tool
+	for _, t := range projectTools {
+		if !toolBlacklist[t.ID.String()] {
+			activeTools = append(activeTools, t)
+		}
+	}
+	log.Printf("%s active tools for run: %d (project total: %d, blacklisted: %d)", logPrefix, len(activeTools), len(projectTools), len(toolBlacklist))
+
 	// Initialize LLM Clients
 	targetClient := NewLLMClient(targetProvider.BaseURL, targetProvider.APIKey, targetProvider.CustomHeaders)
 	evaluatorClient := NewLLMClient(evaluatorProvider.BaseURL, evaluatorProvider.APIKey, evaluatorProvider.CustomHeaders)
@@ -132,10 +157,11 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 	var totalScore float64
 	var completedCount int
 
-for i, tc := range testCases {
+	for i, tc := range testCases {
 		casePrefix := fmt.Sprintf("%s case[%d/%d id=%s]", logPrefix, i+1, len(testCases), tc.ID)
 		
 		var generatedOutput string
+		var toolsCalled []string
 		var err error
 
 		// Add current test case's input to conversation history
@@ -145,36 +171,33 @@ for i, tc := range testCases {
 				Content: tc.InputPrompt,
 				Time:    time.Now(),
 			})
-		}
 
-		if run.EnableMemory && memory != nil {
-		// Add current test case's input to conversation history
-		memory.ConversationHistory = append(memory.ConversationHistory, MemoryEntry{
-			Role:    "user",
-			Content: tc.InputPrompt,
-			Time:    time.Now(),
-		})
+			var contextPrompt string
+			if memory.Resume != "" {
+				contextPrompt = fmt.Sprintf("System Instructions:\n%s\n\nPrevious Context:\n%s\n\nCurrent Question:\n%s\n\nIMPORTANT: Please answer ONLY the current question above. Do NOT include any summary or additional commentary. Your answer should be concise and directly address the question.",
+					sysPrompt.Content,
+					memory.Resume,
+					tc.InputPrompt,
+				)
+			} else {
+				contextPrompt = fmt.Sprintf("System Instructions:\n%s\n\nCurrent Question:\n%s",
+					sysPrompt.Content, tc.InputPrompt)
+			}
 
-		// Build context prompt with clear separation of sections
-		var contextPrompt string
-		if memory.Resume != "" {
-			contextPrompt = fmt.Sprintf("System Instructions:\n%s\n\nPrevious Context:\n%s\n\nCurrent Question:\n%s\n\nIMPORTANT: Please answer ONLY the current question above. Do NOT include any summary or additional commentary. Your answer should be concise and directly address the question.",
+			log.Printf("%s building context prompt with resume=%s", casePrefix, len(memory.Resume) > 0 && memory.Resume != "")
 
-				sysPrompt.Content,
-				memory.Resume,
-				tc.InputPrompt,
-			)
+			if len(activeTools) > 0 {
+				generatedOutput, toolsCalled, err = targetClient.GenerateWithTools(ctx, run.TargetModel, contextPrompt, "", activeTools, 0.0)
+			} else {
+				generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, contextPrompt, "", 0.0)
+			}
 		} else {
-			contextPrompt = fmt.Sprintf("System Instructions:\n%s\n\nCurrent Question:\n%s",
-				sysPrompt.Content, tc.InputPrompt)
+			if len(activeTools) > 0 {
+				generatedOutput, toolsCalled, err = targetClient.GenerateWithTools(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, activeTools, 0.0)
+			} else {
+				generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, 0.0)
+			}
 		}
-
-		log.Printf("%s building context prompt with resume=%s", casePrefix, len(memory.Resume) > 0 && memory.Resume != "")
-
-		generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, contextPrompt, "", 0.0)
-	} else {
-		generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, 0.0)
-	}
 
 		if err != nil {
 			log.Printf("%s target generation failed: %v", casePrefix, err)
@@ -183,13 +206,13 @@ for i, tc := range testCases {
 			isPassed := false
 			reason := "Target generation failed: " + err.Error()
 
-			err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reason)
+			err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reason, toolsCalled)
 			if err != nil {
 				log.Printf("%s failed to save error result: %v", casePrefix, err)
 			}
 			continue
 		}
-		log.Printf("%s target generation ok, len=%d", casePrefix, len(generatedOutput))
+		log.Printf("%s target generation ok, len=%d tools_called=%v", casePrefix, len(generatedOutput), toolsCalled)
 
 		// Save the generation result
 		if run.EnableMemory && memory != nil {
@@ -204,7 +227,6 @@ for i, tc := range testCases {
 				Timestamp:  time.Now(),
 			})
 
-			// Generate a new resume from the updated conversation
 			conversationHistory := BuildConversationHistory(memory.ConversationHistory)
 			resumePrompt, resumeErr := GenerateResume(conversationHistory, generatedOutput)
 			if resumeErr == nil && resumePrompt != "" {
@@ -222,9 +244,6 @@ for i, tc := range testCases {
 
 		log.Printf("%s grading with model %s", casePrefix, run.EvaluatorModel)
 		var evalResponse string
-		// Note: Use regular Generate for evaluator, not GenerateWithMemory
-		// Memory is only for the target model's conversation context,
-		// but evaluator should evaluate each test case independently
 		evalResponse, err = evaluatorClient.Generate(ctx, run.EvaluatorModel, "", evaluatorUserPrompt, 0.0)
 
 		var score float64
@@ -251,7 +270,7 @@ for i, tc := range testCases {
 		totalScore += score
 		completedCount++
 
-		err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reasoning)
+		err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reasoning, toolsCalled)
 		if err != nil {
 			log.Printf("%s failed to save result: %v", casePrefix, err)
 		}
@@ -278,14 +297,15 @@ for i, tc := range testCases {
 	log.Printf("%s completed. avg_score=%.2f passed=%t cases=%d", logPrefix, avgScore, isRunPassed, completedCount)
 }
 
-func saveResult(db *sqlx.DB, runID, testCaseID uuid.UUID, genOutput string, score float64, isPassed bool, reasoning string) error {
+func saveResult(db *sqlx.DB, runID, testCaseID uuid.UUID, genOutput string, score float64, isPassed bool, reasoning string, toolsCalled models.StringArray) error {
 	query := `
-		INSERT INTO evaluation_results (run_id, test_case_id, generated_output, score, is_passed, evaluator_reasoning)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO evaluation_results (run_id, test_case_id, generated_output, score, is_passed, evaluator_reasoning, tools_called)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err := db.Exec(query, runID, testCaseID, genOutput, score, isPassed, reasoning)
+	_, err := db.Exec(query, runID, testCaseID, genOutput, score, isPassed, reasoning, toolsCalled)
 	return err
 }
+
 
 func buildConversationHistory(entries []MemoryEntry) string {
 	var history strings.Builder

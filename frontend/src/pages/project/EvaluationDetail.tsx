@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, CheckCircle2, Loader2, RotateCw, Trash2, XCircle } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Loader2, RotateCw, Trash2, Wrench, XCircle } from "lucide-react"
+
 import { toast } from "sonner"
 
 import { evaluationsApi } from "@/api"
@@ -361,9 +362,21 @@ function ResultRow({ result, index }: { result: DetailedResult; index: number })
       </TableCell>
       <TableCell className="max-w-[220px]">
         {result.generated_output ? (
-          <p className="line-clamp-3 whitespace-normal text-xs">
-            {result.generated_output}
-          </p>
+          <div className="space-y-1">
+            <p className="line-clamp-3 whitespace-normal text-xs">
+              {result.generated_output}
+            </p>
+            {result.tools_called && result.tools_called.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {result.tools_called.map((toolName, idx) => (
+                  <Badge key={idx} variant="outline" className="text-[10px] py-0 px-1 font-mono flex items-center gap-1">
+                    <Wrench className="h-2.5 w-2.5 text-primary" />
+                    {toolName}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
         ) : (
           <span className="text-muted-foreground text-xs">—</span>
         )}
@@ -413,6 +426,20 @@ function ResultRow({ result, index }: { result: DetailedResult; index: number })
             <DetailField label="Expected output">
               {result.expected_output}
             </DetailField>
+            <DetailField label="Tools called by LLM">
+              {result.tools_called && result.tools_called.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {result.tools_called.map((toolName, idx) => (
+                    <Badge key={idx} variant="default" className="text-xs font-mono flex items-center gap-1.5 py-1 px-2.5">
+                      <Wrench className="h-3 w-3" />
+                      {toolName}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-muted-foreground text-xs font-sans">None (Direct Answer)</span>
+              )}
+            </DetailField>
             <DetailField label="Generated output">
               {result.generated_output ?? "—"}
             </DetailField>
@@ -437,6 +464,7 @@ function ResultRow({ result, index }: { result: DetailedResult; index: number })
     </TableRow>
   )
 }
+
 
 function DetailField({
   label,

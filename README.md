@@ -11,9 +11,12 @@ This project allows developers to benchmark how different system prompts perform
 - **Prompt Versioning**: Tracks historical changes to system prompts so you can revert or compare previous revisions.
 - **Custom Evaluation Prompts (Rubrics)**: Inject custom grading criteria (e.g. grading specifically for tone, formatting, or accuracy) rather than just a single static rubric.
 - **Bring Your Own Key (BYOK)**: Connect any OpenAI-compatible endpoint (like local Ollama, custom OpenAI endpoints, or OpenRouter) by configuring the base URL, plain text API keys, and custom HTTP headers.
+- **Mock Tool Calling & Blacklisting**: Create global mock tools with schemas and canned responses, assign them to projects, and selectively blacklist specific tools per evaluation run to test LLM tool-calling decisions and instruction adherence.
+- **Tool Invocation Audit**: Track which tools were invoked by the target LLM for every single test case run.
 - **Granular Auditing**: Tracks who created, modified, or executed each project, prompt, configuration, and evaluation run.
 - **Pass Thresholds**: Define quality thresholds (e.g. average score must be >= 0.8) and flag whether runs or individual test cases passed or failed.
 - **Asynchronous Polling**: Executes evaluations in the background, updating the UI via a status polling mechanism.
+
 
 ---
 

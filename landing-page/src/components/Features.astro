@@ -1,8 +1,13 @@
 ---
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { History, Target, Key, ShieldCheck } from 'lucide-react';
+import { History, Target, Key, ShieldCheck, Wrench } from 'lucide-react';
 
 const features = [
+  {
+    title: "Mock Tool Calling & Blacklisting",
+    description: "Simulate native function calling with mock responses. Assign global tools to projects and selectively blacklist them per run to evaluate LLM tool choice and instruction adherence.",
+    icon: Wrench,
+  },
   {
     title: "Prompt Versioning",
     description: "Track historical changes to system prompts so you can revert or compare previous revisions with ease.",
@@ -24,6 +29,7 @@ const features = [
     icon: ShieldCheck,
   }
 ];
+
 ---
 
 <section id="features" class="py-24 bg-background relative">

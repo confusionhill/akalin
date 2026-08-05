@@ -796,16 +796,16 @@ func (h *Handler) CreateEvaluation(c echo.Context) error {
 		INSERT INTO evaluation_runs (
 			project_id, system_prompt_id, evaluation_prompt_id,
 			target_provider_id, target_model, evaluator_provider_id,
-			evaluator_model, model_used, status, pass_threshold, run_by, blacklisted_test_case_ids, enable_memory
+			evaluator_model, model_used, status, pass_threshold, run_by, blacklisted_test_case_ids, blacklisted_tool_ids, enable_memory
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $7, 'pending', $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $7, 'pending', $8, $9, $10, $11, $12)
 		RETURNING *
 	`
 	var run models.EvaluationRun
 	err = h.DB.Get(&run, query,
 		projectID, req.SystemPromptID, req.EvaluationPromptID,
 		req.TargetProviderID, req.TargetModel, req.EvaluatorProviderID,
-		req.EvaluatorModel, req.PassThreshold, userID, req.BlacklistedTestCaseIDs, req.EnableMemory,
+		req.EvaluatorModel, req.PassThreshold, userID, req.BlacklistedTestCaseIDs, req.BlacklistedToolIDs, req.EnableMemory,
 	)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -844,7 +844,7 @@ func (h *Handler) GetEvaluationDetails(c echo.Context) error {
 	resultQuery := `
 		SELECT 
 			er.id, er.run_id, er.test_case_id, er.generated_output, er.score, 
-			er.is_passed, er.evaluator_reasoning, er.created_at,
+			er.is_passed, er.evaluator_reasoning, er.tools_called, er.created_at,
 			tc.input_prompt, tc.expected_output
 		FROM evaluation_results er 
 		JOIN test_cases tc ON er.test_case_id = tc.id 
@@ -858,6 +858,7 @@ func (h *Handler) GetEvaluationDetails(c echo.Context) error {
 	if results == nil {
 		results = []DetailedResult{}
 	}
+
 
 	resp := RunDetailsResponse{
 		EvaluationRun: run,
@@ -892,3 +893,182 @@ func (h *Handler) DeleteEvaluation(c echo.Context) error {
 
 	return c.NoContent(http.StatusNoContent)
 }
+
+// -------------------------------------------------------------------------
+// Tools Handlers
+// -------------------------------------------------------------------------
+
+func (h *Handler) GetTools(c echo.Context) error {
+	tenantID, _, _, err := h.getAuth(c)
+	if err != nil {
+		return err
+	}
+
+	var tools []models.Tool
+	err = h.DB.Select(&tools, "SELECT * FROM tools WHERE tenant_id = $1 ORDER BY name ASC", tenantID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if tools == nil {
+		tools = []models.Tool{}
+	}
+	return c.JSON(http.StatusOK, tools)
+}
+
+func (h *Handler) CreateTool(c echo.Context) error {
+	tenantID, userID, _, err := h.getAuth(c)
+	if err != nil {
+		return err
+	}
+
+	req := new(models.Tool)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+
+	query := `
+		INSERT INTO tools (tenant_id, name, description, result, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $5)
+		RETURNING *
+	`
+	var tool models.Tool
+	err = h.DB.Get(&tool, query, tenantID, req.Name, req.Description, req.Result, userID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusCreated, tool)
+}
+
+func (h *Handler) UpdateTool(c echo.Context) error {
+	tenantID, userID, _, err := h.getAuth(c)
+	if err != nil {
+		return err
+	}
+	toolID, err := uuid.Parse(c.Param("tool_id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid tool ID")
+	}
+
+	req := new(models.Tool)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+
+	query := `
+		UPDATE tools
+		SET name = $1, description = $2, result = $3, updated_by = $4, updated_at = $5
+		WHERE id = $6 AND tenant_id = $7
+		RETURNING *
+	`
+	var tool models.Tool
+	err = h.DB.Get(&tool, query, req.Name, req.Description, req.Result, userID, time.Now(), toolID, tenantID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return echo.NewHTTPError(http.StatusNotFound, "Tool not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, tool)
+}
+
+func (h *Handler) DeleteTool(c echo.Context) error {
+	tenantID, _, _, err := h.getAuth(c)
+	if err != nil {
+		return err
+	}
+	toolID, err := uuid.Parse(c.Param("tool_id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid tool ID")
+	}
+
+	_, err = h.DB.Exec("DELETE FROM tools WHERE id = $1 AND tenant_id = $2", toolID, tenantID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+// -------------------------------------------------------------------------
+// Project Tools Handlers
+// -------------------------------------------------------------------------
+
+func (h *Handler) GetProjectTools(c echo.Context) error {
+	_, _, _, err := h.getAuth(c)
+	if err != nil {
+		return err
+	}
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid project ID")
+	}
+
+	var tools []models.Tool
+	query := `
+		SELECT t.* FROM tools t
+		JOIN project_tools pt ON t.id = pt.tool_id
+		WHERE pt.project_id = $1
+		ORDER BY t.name ASC
+	`
+	err = h.DB.Select(&tools, query, projectID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if tools == nil {
+		tools = []models.Tool{}
+	}
+	return c.JSON(http.StatusOK, tools)
+}
+
+type UpdateProjectToolsReq struct {
+	ToolIDs []uuid.UUID `json:"tool_ids"`
+}
+
+func (h *Handler) UpdateProjectTools(c echo.Context) error {
+	_, _, _, err := h.getAuth(c)
+	if err != nil {
+		return err
+	}
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid project ID")
+	}
+
+	req := new(UpdateProjectToolsReq)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+
+	tx, err := h.DB.Beginx()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec("DELETE FROM project_tools WHERE project_id = $1", projectID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	for _, toolID := range req.ToolIDs {
+		_, err = tx.Exec("INSERT INTO project_tools (project_id, tool_id) VALUES ($1, $2)", projectID, toolID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return h.GetProjectTools(c)
+}
+

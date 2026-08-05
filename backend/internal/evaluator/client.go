@@ -10,17 +10,46 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
 )
 
+
+type ToolCallFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+type ToolCall struct {
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
+	Function ToolCallFunction `json:"function"`
+}
+
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	Name       string     `json:"name,omitempty"`
+}
+
+type ToolFunction struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Parameters  map[string]interface{} `json:"parameters,omitempty"`
+}
+
+type ToolDefinition struct {
+	Type     string       `json:"type"`
+	Function ToolFunction `json:"function"`
 }
 
 type ChatCompletionsRequest struct {
-	Model       string        `json:"model"`
-	Messages    []ChatMessage `json:"messages"`
-	Temperature float64       `json:"temperature"`
+	Model       string           `json:"model"`
+	Messages    []ChatMessage    `json:"messages"`
+	Tools       []ToolDefinition `json:"tools,omitempty"`
+	Temperature float64          `json:"temperature"`
 }
 
 type ChatCompletionsResponse struct {
@@ -37,6 +66,7 @@ type LLMClient struct {
 	APIKey        string
 	CustomHeaders map[string]string
 }
+
 
 func NewLLMClient(baseURL, apiKey string, customHeaders map[string]string) *LLMClient {
 	// Standardize base URL - ensure it doesn't end with a trailing slash
@@ -94,54 +124,56 @@ func buildMessages(systemPrompt, userPrompt, conversationHistory string) ([]Chat
 }
 
 func (c *LLMClient) makeRequest(ctx context.Context, model string, messages []ChatMessage, temperature float64) (string, error) {
+	msg, err := c.makeRequestWithTools(ctx, model, messages, nil, temperature)
+	if err != nil {
+		return "", err
+	}
+	return msg.Content, nil
+}
+
+
+func (c *LLMClient) makeRequestWithTools(ctx context.Context, model string, messages []ChatMessage, tools []ToolDefinition, temperature float64) (ChatMessage, error) {
 	url := fmt.Sprintf("%s/chat/completions", c.BaseURL)
 
 	reqBody := ChatCompletionsRequest{
 		Model:       model,
 		Messages:    messages,
+		Tools:       tools,
 		Temperature: temperature,
 	}
 
 	jsonBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return ChatMessage{}, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	log.Printf("[llm-client] POST %s model=%s msgs=%d", url, model, len(messages))
+	log.Printf("[llm-client] POST %s model=%s msgs=%d tools=%d", url, model, len(messages), len(tools))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBytes))
 	if err != nil {
-		return "", fmt.Errorf("failed to create http request: %w", err)
+		return ChatMessage{}, fmt.Errorf("failed to create http request: %w", err)
 	}
 
-	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	if c.APIKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.APIKey))
 	}
-
-	// Inject custom headers
 	for k, v := range c.CustomHeaders {
 		req.Header.Set(k, v)
 	}
 
-	client := &http.Client{
-		Timeout: 60 * time.Second,
-	}
-
+	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("[llm-client] request error: %s model=%s err=%v", url, model, err)
-		return "", fmt.Errorf("http request failed: %w", err)
+		return ChatMessage{}, fmt.Errorf("http request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
+		return ChatMessage{}, fmt.Errorf("failed to read response body: %w", err)
 	}
-
-	log.Printf("[llm-client] response status=%d len=%d model=%s", resp.StatusCode, len(respBytes), model)
 
 	if resp.StatusCode != http.StatusOK {
 		snippet := string(respBytes)
@@ -151,28 +183,88 @@ func (c *LLMClient) makeRequest(ctx context.Context, model string, messages []Ch
 		log.Printf("[llm-client] non-200 status=%d url=%s model=%s body=%s", resp.StatusCode, url, model, snippet)
 		var errResp ChatCompletionsResponse
 		if json.Unmarshal(respBytes, &errResp) == nil && errResp.Error != nil {
-			return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, errResp.Error.Message)
+			return ChatMessage{}, fmt.Errorf("API error (status %d): %s", resp.StatusCode, errResp.Error.Message)
 		}
-		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, snippet)
+		return ChatMessage{}, fmt.Errorf("API error (status %d): %s", resp.StatusCode, snippet)
 	}
 
 	var chatResp ChatCompletionsResponse
 	if err := json.Unmarshal(respBytes, &chatResp); err != nil {
-		snippet := string(respBytes)
-		if len(snippet) > 400 {
-			snippet = snippet[:400] + "...(truncated)"
-		}
-		log.Printf("[llm-client] unmarshal error: %v body=%s", err, snippet)
-		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+		return ChatMessage{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	if len(chatResp.Choices) == 0 {
-		log.Printf("[llm-client] empty choices url=%s model=%s body=%s", url, model, string(respBytes))
-		return "", fmt.Errorf("received empty choices in completions response")
+		return ChatMessage{}, fmt.Errorf("received empty choices in completions response")
 	}
 
-	return chatResp.Choices[0].Message.Content, nil
+	return chatResp.Choices[0].Message, nil
 }
+
+func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemPrompt, userPrompt string, availableTools []models.Tool, temperature float64) (string, []string, error) {
+	messages, err := buildMessages(systemPrompt, userPrompt, "")
+	if err != nil {
+		return "", nil, err
+	}
+
+	var toolDefs []ToolDefinition
+	for _, t := range availableTools {
+		toolDefs = append(toolDefs, ToolDefinition{
+			Type: "function",
+			Function: ToolFunction{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters: map[string]interface{}{
+					"type":       "object",
+					"properties": map[string]interface{}{},
+				},
+			},
+		})
+	}
+
+	var toolsCalled []string
+	const maxTurns = 6
+
+	for turn := 0; turn < maxTurns; turn++ {
+		msg, err := c.makeRequestWithTools(ctx, model, messages, toolDefs, temperature)
+		if err != nil {
+			return "", toolsCalled, err
+		}
+
+		// If no tool calls requested, the LLM has produced its final output
+		if len(msg.ToolCalls) == 0 {
+			return msg.Content, toolsCalled, nil
+		}
+
+		// Append the assistant's response (with tool_calls) to conversation history
+		messages = append(messages, msg)
+
+		// Intercept tool calls and feed back mocked results
+		for _, tc := range msg.ToolCalls {
+			toolName := tc.Function.Name
+			toolsCalled = append(toolsCalled, toolName)
+
+			var mockResult string = "Tool executed successfully."
+			for _, t := range availableTools {
+				if t.Name == toolName {
+					mockResult = t.Result
+					break
+				}
+			}
+
+			messages = append(messages, ChatMessage{
+				Role:       "tool",
+				ToolCallID: tc.ID,
+				Name:       toolName,
+				Content:    mockResult,
+			})
+		}
+	}
+
+	// Fallback if maxTurns reached
+	lastMsg := messages[len(messages)-1]
+	return lastMsg.Content, toolsCalled, nil
+}
+
 
 func (c *LLMClient) GenerateWithMemory(ctx context.Context, model string, systemPrompt string, conversationHistory string, temperature float64) (string, error) {
 	messages, err := buildMessages(systemPrompt, "", conversationHistory)
@@ -181,3 +273,4 @@ func (c *LLMClient) GenerateWithMemory(ctx context.Context, model string, system
 	}
 	return c.makeRequest(ctx, model, messages, temperature)
 }
+

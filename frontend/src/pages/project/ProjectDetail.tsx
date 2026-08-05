@@ -29,6 +29,8 @@ import { PromptVersionsTab } from "@/pages/project/PromptVersionsTab"
 import { TestCasesTab } from "@/pages/project/TestCasesTab"
 import { formatRelativeTime } from "@/lib/utils"
 
+import { ProjectToolsTab } from "@/pages/project/ProjectTools"
+
 export function ProjectDetailPage() {
   const { id = "" } = useParams()
   const navigate = useNavigate()
@@ -162,6 +164,7 @@ export function ProjectDetailPage() {
           <TabsTrigger value="prompts">System prompts</TabsTrigger>
           <TabsTrigger value="rubric">Evaluation prompts</TabsTrigger>
           <TabsTrigger value="cases">Test cases</TabsTrigger>
+          <TabsTrigger value="tools">Tools</TabsTrigger>
           <TabsTrigger value="evaluations">Evaluations</TabsTrigger>
         </TabsList>
 
@@ -197,6 +200,11 @@ export function ProjectDetailPage() {
           {loading ? <LoadingPanel /> : <TestCasesTab projectId={id} />}
         </TabsContent>
 
+        <TabsContent value="tools">
+          {loading ? <LoadingPanel /> : <ProjectToolsTab projectId={id} />}
+        </TabsContent>
+
+
         <TabsContent value="evaluations">
           {loading ? <LoadingPanel /> : <EvaluationsTab projectId={id} />}
         </TabsContent>
@@ -204,6 +212,7 @@ export function ProjectDetailPage() {
     </div>
   )
 }
+
 
 function LoadingPanel() {
   return (

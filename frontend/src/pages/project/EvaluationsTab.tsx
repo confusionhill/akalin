@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowRight, CheckIcon, Loader2, Play, Plus, Trash2, Sparkles } from "lucide-react"
+import { ArrowRight, CheckIcon, Loader2, Play, Plus, Trash2, Sparkles, Wrench } from "lucide-react"
+
 import { toast } from "sonner"
 
 import {
   evaluationPromptsApi,
   evaluationsApi,
+  projectToolsApi,
   providersApi,
   systemPromptsApi,
   testCasesApi,
@@ -17,6 +19,7 @@ import type {
   RunStatus,
   SystemPrompt,
   TestCase,
+  Tool,
 } from "@/api/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -46,6 +49,7 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatDateTime, formatRelativeTime } from "@/lib/utils"
+
 
 const statusVariant: Record<
   RunStatus,
@@ -101,6 +105,8 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
   const [providers, setProviders] = useState<ProviderConfig[]>([])
   const [testCases, setTestCases] = useState<TestCase[]>([])
   const [disabledTc, setDisabledTc] = useState<Set<string>>(new Set())
+  const [projectTools, setProjectTools] = useState<Tool[]>([])
+  const [blacklistedTools, setBlacklistedTools] = useState<Set<string>>(new Set())
 
   const [systemPromptId, setSystemPromptId] = useState("")
   const [evaluationPromptId, setEvaluationPromptId] = useState("")
@@ -125,17 +131,20 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
 
   const loadFormOptions = async () => {
     try {
-      const [sp, ep, pv, tc] = await Promise.all([
+      const [sp, ep, pv, tc, pt] = await Promise.all([
         systemPromptsApi.list(projectId),
         evaluationPromptsApi.list(projectId),
         providersApi.list(),
         testCasesApi.list(projectId),
+        projectToolsApi.list(projectId),
       ])
       setSysPrompts(sp)
       setEvalPrompts(ep)
       setProviders(pv)
       setTestCases(tc)
+      setProjectTools(pt)
       setDisabledTc(new Set())
+      setBlacklistedTools(new Set())
       if (sp.length > 0) setSystemPromptId(sp[0].id)
       if (ep.length > 0) setEvaluationPromptId(ep[0].id)
       if (pv.length > 0) {
@@ -146,6 +155,7 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
       // ignore; toast handled by callers
     }
   }
+
 
   useEffect(() => {
     void load()
@@ -185,6 +195,7 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
         model_used: targetModel.trim(),
         pass_threshold: Number.parseFloat(threshold) || 0,
         blacklisted_test_case_ids: Array.from(disabledTc),
+        blacklisted_tool_ids: Array.from(blacklistedTools),
         enable_memory: enableMemory,
       })
       toast.success("Evaluation run started")
@@ -195,6 +206,7 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
     } finally {
       setSaving(false)
     }
+
   }
 
   const handleDelete = async () => {
@@ -416,8 +428,65 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
                   it from this run.
                 </p>
               </div>
+
+              {projectTools.length > 0 && (
+                <div className="flex w-full min-w-0 flex-col gap-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-1.5">
+                      <Wrench className="size-3.5 text-primary" /> Active Project Tools
+                    </Label>
+                    <span className="text-muted-foreground text-xs">
+                      {projectTools.length - blacklistedTools.size} of {projectTools.length} enabled
+                    </span>
+                  </div>
+                  <div className="flex max-h-40 w-full min-w-0 flex-col gap-1.5 overflow-y-auto">
+                    {projectTools.map((t) => {
+                      const enabled = !blacklistedTools.has(t.id)
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() =>
+                            setBlacklistedTools((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(t.id)) next.delete(t.id)
+                              else next.add(t.id)
+                              return next
+                            })
+                          }
+                          className={
+                            "flex w-full min-w-0 items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors " +
+                            (enabled
+                              ? "border-border hover:bg-accent/40"
+                              : "border-transparent bg-muted/30 opacity-60 hover:opacity-100")
+                          }
+                        >
+                          <span
+                            className={
+                              "flex size-4 shrink-0 items-center justify-center rounded border " +
+                              (enabled
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-input bg-background")
+                            }
+                          >
+                            {enabled && <CheckIcon className="size-3" />}
+                          </span>
+                          <div className="flex flex-1 items-center justify-between min-w-0">
+                            <span className="truncate text-xs font-semibold">{t.name}</span>
+                            <span className="truncate text-[11px] text-muted-foreground ml-2">{t.description}</span>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-muted-foreground text-[11px]">
+                    All project tools are active by default. Tap to blacklist (disable) tools for this run.
+                  </p>
+                </div>
+              )}
             </div>
           )}
+
           <DialogFooter>
             <Button
               variant="outline"

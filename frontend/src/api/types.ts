@@ -67,6 +67,18 @@ export interface ProviderConfig {
   updated_at: string
 }
 
+export interface Tool {
+  id: string
+  tenant_id: string
+  name: string
+  description: string
+  result: string
+  created_by: string
+  updated_by: string
+  created_at: string
+  updated_at: string
+}
+
 export type RunStatus = "pending" | "running" | "completed" | "failed"
 
 export interface EvaluationRun {
@@ -85,6 +97,7 @@ export interface EvaluationRun {
   average_score: number | null
   failure_reason: string | null
   blacklisted_test_case_ids: string[]
+  blacklisted_tool_ids: string[]
   enable_memory: boolean
   run_by: string
   created_at: string
@@ -99,6 +112,7 @@ export interface EvaluationResult {
   score: number | null
   is_passed: boolean | null
   evaluator_reasoning: string | null
+  tools_called: string[]
   created_at: string
 }
 
@@ -136,6 +150,12 @@ export interface CreateProviderInput {
   custom_headers: HeadersMap
 }
 
+export interface CreateToolInput {
+  name: string
+  description: string
+  result: string
+}
+
 export interface CreateEvaluationInput {
   system_prompt_id: string
   evaluation_prompt_id: string
@@ -146,5 +166,7 @@ export interface CreateEvaluationInput {
   model_used?: string
   pass_threshold: number
   blacklisted_test_case_ids?: string[]
+  blacklisted_tool_ids?: string[]
   enable_memory?: boolean
 }
+

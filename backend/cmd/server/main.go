@@ -94,11 +94,22 @@ func main() {
 	api.PUT("/providers/:provider_id", h.UpdateProvider)
 	api.DELETE("/providers/:provider_id", h.DeleteProvider)
 
+	// Global Tools — tenant-scoped
+	api.GET("/tools", h.GetTools)
+	api.POST("/tools", h.CreateTool)
+	api.PUT("/tools/:tool_id", h.UpdateTool)
+	api.DELETE("/tools/:tool_id", h.DeleteTool)
+
+	// Project Tools
+	api.GET("/projects/:id/tools", h.GetProjectTools)
+	api.PUT("/projects/:id/tools", h.UpdateProjectTools)
+
 	// Evaluations
 	api.GET("/projects/:id/evaluations", h.GetEvaluations)
 	api.POST("/projects/:id/evaluations", h.CreateEvaluation)
 	api.GET("/projects/:id/evaluations/:run_id", h.GetEvaluationDetails)
 	api.DELETE("/projects/:id/evaluations/:run_id", h.DeleteEvaluation)
+
 
 	// Start Server
 	serverAddr := fmt.Sprintf(":%s", port)

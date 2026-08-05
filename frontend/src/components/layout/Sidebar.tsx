@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom"
-import { FlaskConical, KeyRound, LogOut, Settings } from "lucide-react"
+import { FlaskConical, KeyRound, LogOut, Settings, Wrench } from "lucide-react"
 
 import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
@@ -16,7 +16,9 @@ import { Separator } from "@/components/ui/separator"
 const navItems = [
   { to: "/projects", label: "Projects", icon: FlaskConical },
   { to: "/providers", label: "Providers", icon: KeyRound },
+  { to: "/tools", label: "Tools", icon: Wrench },
 ]
+
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { auth, logout } = useAuth()

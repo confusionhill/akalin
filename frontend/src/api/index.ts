@@ -7,6 +7,7 @@ import type {
   CreateProviderInput,
   CreateSystemPromptInput,
   CreateTestCaseInput,
+  CreateToolInput,
   EvaluationPrompt,
   EvaluationRun,
   Project,
@@ -14,7 +15,9 @@ import type {
   RunDetails,
   SystemPrompt,
   TestCase,
+  Tool,
 } from "./types"
+
 
 export const authApi = {
   login: (email: string, password: string) =>
@@ -85,6 +88,20 @@ export const providersApi = {
   remove: (providerId: string) => http.del<void>(`/providers/${providerId}`),
 }
 
+export const toolsApi = {
+  list: () => http.get<Tool[]>("/tools"),
+  create: (body: CreateToolInput) => http.post<Tool>("/tools", body),
+  update: (toolId: string, body: CreateToolInput) =>
+    http.put<Tool>(`/tools/${toolId}`, body),
+  remove: (toolId: string) => http.del<void>(`/tools/${toolId}`),
+}
+
+export const projectToolsApi = {
+  list: (projectId: string) => http.get<Tool[]>(`/projects/${projectId}/tools`),
+  update: (projectId: string, toolIds: string[]) =>
+    http.put<Tool[]>(`/projects/${projectId}/tools`, { tool_ids: toolIds }),
+}
+
 export const evaluationsApi = {
   list: (projectId: string) =>
     http.get<EvaluationRun[]>(`/projects/${projectId}/evaluations`),
@@ -95,3 +112,4 @@ export const evaluationsApi = {
   remove: (projectId: string, runId: string) =>
     http.del<void>(`/projects/${projectId}/evaluations/${runId}`),
 }
+

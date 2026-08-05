@@ -115,6 +115,23 @@ func (s *StringArray) Scan(value interface{}) error {
 	return json.Unmarshal(b, s)
 }
 
+type Tool struct {
+	ID          uuid.UUID `db:"id" json:"id"`
+	TenantID    uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	Name        string    `db:"name" json:"name" validate:"required"`
+	Description string    `db:"description" json:"description" validate:"required"`
+	Result      string    `db:"result" json:"result" validate:"required"`
+	CreatedBy   uuid.UUID `db:"created_by" json:"created_by"`
+	UpdatedBy   uuid.UUID `db:"updated_by" json:"updated_by"`
+	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
+}
+
+type ProjectTool struct {
+	ProjectID uuid.UUID `db:"project_id" json:"project_id"`
+	ToolID    uuid.UUID `db:"tool_id" json:"tool_id"`
+}
+
 type ProviderConfig struct {
 	ID            uuid.UUID `db:"id" json:"id"`
 	TenantID      uuid.UUID `db:"tenant_id" json:"tenant_id"`
@@ -129,34 +146,37 @@ type ProviderConfig struct {
 }
 
 type EvaluationRun struct {
-	ID                  uuid.UUID  `db:"id" json:"id"`
-	ProjectID           uuid.UUID  `db:"project_id" json:"project_id"`
-	SystemPromptID      uuid.UUID  `db:"system_prompt_id" json:"system_prompt_id" validate:"required"`
-	EvaluationPromptID  uuid.UUID  `db:"evaluation_prompt_id" json:"evaluation_prompt_id" validate:"required"`
-	TargetProviderID    uuid.UUID  `db:"target_provider_id" json:"target_provider_id" validate:"required"`
-	TargetModel         string     `db:"target_model" json:"target_model" validate:"required"`
-	EvaluatorProviderID uuid.UUID  `db:"evaluator_provider_id" json:"evaluator_provider_id" validate:"required"`
-	EvaluatorModel      string     `db:"evaluator_model" json:"evaluator_model" validate:"required"`
-	ModelUsed           string     `db:"model_used" json:"model_used"`
-	Status              string     `db:"status" json:"status"`
-	PassThreshold       float64    `db:"pass_threshold" json:"pass_threshold" validate:"required,gte=0,lte=1"`
-	IsPassed            *bool       `db:"is_passed" json:"is_passed"`
-	AverageScore        *float64    `db:"average_score" json:"average_score"`
-	FailureReason       *string     `db:"failure_reason" json:"failure_reason"`
+	ID                     uuid.UUID   `db:"id" json:"id"`
+	ProjectID              uuid.UUID   `db:"project_id" json:"project_id"`
+	SystemPromptID         uuid.UUID   `db:"system_prompt_id" json:"system_prompt_id" validate:"required"`
+	EvaluationPromptID     uuid.UUID   `db:"evaluation_prompt_id" json:"evaluation_prompt_id" validate:"required"`
+	TargetProviderID       uuid.UUID   `db:"target_provider_id" json:"target_provider_id" validate:"required"`
+	TargetModel            string      `db:"target_model" json:"target_model" validate:"required"`
+	EvaluatorProviderID    uuid.UUID   `db:"evaluator_provider_id" json:"evaluator_provider_id" validate:"required"`
+	EvaluatorModel         string      `db:"evaluator_model" json:"evaluator_model" validate:"required"`
+	ModelUsed              string      `db:"model_used" json:"model_used"`
+	Status                 string      `db:"status" json:"status"`
+	PassThreshold          float64     `db:"pass_threshold" json:"pass_threshold" validate:"required,gte=0,lte=1"`
+	IsPassed               *bool       `db:"is_passed" json:"is_passed"`
+	AverageScore           *float64    `db:"average_score" json:"average_score"`
+	FailureReason          *string     `db:"failure_reason" json:"failure_reason"`
 	BlacklistedTestCaseIDs StringArray `db:"blacklisted_test_case_ids" json:"blacklisted_test_case_ids"`
-	EnableMemory        bool        `db:"enable_memory" json:"enable_memory"`
-	RunBy               uuid.UUID   `db:"run_by" json:"run_by"`
-	CreatedAt           time.Time  `db:"created_at" json:"created_at"`
-	CompletedAt         *time.Time `db:"completed_at" json:"completed_at"`
+	BlacklistedToolIDs     StringArray `db:"blacklisted_tool_ids" json:"blacklisted_tool_ids"`
+	EnableMemory           bool        `db:"enable_memory" json:"enable_memory"`
+	RunBy                  uuid.UUID   `db:"run_by" json:"run_by"`
+	CreatedAt              time.Time   `db:"created_at" json:"created_at"`
+	CompletedAt            *time.Time  `db:"completed_at" json:"completed_at"`
 }
 
 type EvaluationResult struct {
-	ID              uuid.UUID  `db:"id" json:"id"`
-	RunID           uuid.UUID  `db:"run_id" json:"run_id"`
-	TestCaseID      uuid.UUID  `db:"test_case_id" json:"test_case_id"`
-	GeneratedOutput *string    `db:"generated_output" json:"generated_output"`
-	Score           *float64   `db:"score" json:"score"`
-	IsPassed        *bool      `db:"is_passed" json:"is_passed"`
-	EvaluatorReason *string    `db:"evaluator_reasoning" json:"evaluator_reasoning"`
-	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
+	ID              uuid.UUID   `db:"id" json:"id"`
+	RunID           uuid.UUID   `db:"run_id" json:"run_id"`
+	TestCaseID      uuid.UUID   `db:"test_case_id" json:"test_case_id"`
+	GeneratedOutput *string     `db:"generated_output" json:"generated_output"`
+	Score           *float64    `db:"score" json:"score"`
+	IsPassed        *bool       `db:"is_passed" json:"is_passed"`
+	EvaluatorReason *string     `db:"evaluator_reasoning" json:"evaluator_reasoning"`
+	ToolsCalled     StringArray `db:"tools_called" json:"tools_called"`
+	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
 }
+

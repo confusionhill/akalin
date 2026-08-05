@@ -1,28 +1,34 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import Header from '../components/Header.astro';
-import Hero from '../components/Hero.astro';
-import Features from '../components/Features.astro';
+import Layout from "../layouts/Layout.astro";
+import Header from "../components/Header.astro";
+import Hero from "../components/Hero.astro";
+import Features from "../components/Features.astro";
 ---
 
-<Layout title="Akalin | Evaluate LLM Prompts with Precision" description="Design, test, track, and grade LLM system prompts.">
+<Layout
+	title="Akalin | Evaluate LLM Prompts with Precision"
+	description="Design, test, track, and grade LLM system prompts."
+>
 	<Header />
 	<main>
 		<Hero />
-		
+
 		{/* Social Proof Section */}
 		<section class="py-12 border-y bg-muted/30">
 			<div class="container mx-auto px-4 md:px-8">
-				<p class="text-center text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-8">
-					Trusted by AI Engineering Teams
+				<p
+					class="text-center text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-8"
+				>
+					Trusted by AI Native Teams Working in
 				</p>
-				<div class="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+				<div
+					class="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-50 grayscale hover:grayscale-0 transition-all duration-500"
+				>
 					{/* Mock Logos for demonstration */}
-					<h3 class="text-xl font-bold">Acme Corp</h3>
-					<h3 class="text-xl font-bold">Globex</h3>
-					<h3 class="text-xl font-bold">Soylent</h3>
-					<h3 class="text-xl font-bold">Initech</h3>
-					<h3 class="text-xl font-bold">Umbrella</h3>
+					<h3 class="text-xl font-bold">Gojek</h3>
+					<h3 class="text-xl font-bold">Gopay</h3>
+					<h3 class="text-xl font-bold">Bytedance</h3>
+					<h3 class="text-xl font-bold">Garena</h3>
 				</div>
 			</div>
 		</section>
@@ -30,11 +36,15 @@ import Features from '../components/Features.astro';
 		{/* Media Section */}
 		<section class="py-24 overflow-hidden">
 			<div class="container mx-auto px-4 md:px-8">
-				<div class="relative mx-auto max-w-5xl rounded-xl border bg-background/50 p-2 shadow-2xl backdrop-blur-sm lg:rounded-2xl lg:p-4 -mt-12 transition-all duration-700 hover:scale-[1.02]">
-					<div class="rounded-lg overflow-hidden border bg-muted shadow-inner relative group">
-						<img 
-							src="/dashboard-preview.png" 
-							alt="Akalin Evaluation Run Dashboard" 
+				<div
+					class="relative mx-auto max-w-5xl rounded-xl border bg-background/50 p-2 shadow-2xl backdrop-blur-sm lg:rounded-2xl lg:p-4 -mt-12 transition-all duration-700 hover:scale-[1.02]"
+				>
+					<div
+						class="rounded-lg overflow-hidden border bg-muted shadow-inner relative group"
+					>
+						<img
+							src="/dashboard-preview.png"
+							alt="Akalin Evaluation Run Dashboard"
 							class="w-full h-auto object-cover rounded-lg shadow-md"
 						/>
 					</div>
@@ -48,36 +58,65 @@ import Features from '../components/Features.astro';
 		<section id="testimonials" class="py-24 bg-muted/20">
 			<div class="container mx-auto px-4 md:px-8">
 				<div class="text-center mb-16 max-w-3xl mx-auto">
-					<h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4">Loved by Engineers</h2>
+					<h2
+						class="text-3xl md:text-5xl font-bold tracking-tight mb-4"
+					>
+						Loved by Engineers
+					</h2>
 				</div>
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+				<div
+					class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto"
+				>
 					<div class="bg-background rounded-xl p-6 border shadow-sm">
-						<p class="text-muted-foreground mb-4">"Akalin completely changed how we ship AI features. We no longer guess if a prompt tweak breaks something else."</p>
+						<p class="text-muted-foreground mb-4">
+							"Akalin completely changed how we ship AI features.
+							We no longer guess if a prompt tweak breaks
+							something else."
+						</p>
 						<div class="flex items-center gap-3">
-							<div class="w-10 h-10 rounded-full bg-primary/20"></div>
+							<div class="w-10 h-10 rounded-full bg-primary/20">
+							</div>
 							<div>
-								<div class="font-bold text-sm">Sarah Jenkins</div>
-								<div class="text-xs text-muted-foreground">Lead AI Engineer</div>
+								<div class="font-bold text-sm">
+									Sarah Jenkins
+								</div>
+								<div class="text-xs text-muted-foreground">
+									Lead AI Engineer
+								</div>
 							</div>
 						</div>
 					</div>
 					<div class="bg-background rounded-xl p-6 border shadow-sm">
-						<p class="text-muted-foreground mb-4">"The BYOK feature is killer. Being able to test against our local fine-tunes without exposing them is exactly what we needed."</p>
+						<p class="text-muted-foreground mb-4">
+							"The BYOK feature is killer. Being able to test
+							against our local fine-tunes without exposing them
+							is exactly what we needed."
+						</p>
 						<div class="flex items-center gap-3">
-							<div class="w-10 h-10 rounded-full bg-primary/20"></div>
+							<div class="w-10 h-10 rounded-full bg-primary/20">
+							</div>
 							<div>
 								<div class="font-bold text-sm">David Chen</div>
-								<div class="text-xs text-muted-foreground">CTO, DataCorp</div>
+								<div class="text-xs text-muted-foreground">
+									CTO, DataCorp
+								</div>
 							</div>
 						</div>
 					</div>
 					<div class="bg-background rounded-xl p-6 border shadow-sm">
-						<p class="text-muted-foreground mb-4">"Versioning system prompts was a nightmare before this. Now we have full audit trails for every generation."</p>
+						<p class="text-muted-foreground mb-4">
+							"Versioning system prompts was a nightmare before
+							this. Now we have full audit trails for every
+							generation."
+						</p>
 						<div class="flex items-center gap-3">
-							<div class="w-10 h-10 rounded-full bg-primary/20"></div>
+							<div class="w-10 h-10 rounded-full bg-primary/20">
+							</div>
 							<div>
 								<div class="font-bold text-sm">Maya Patel</div>
-								<div class="text-xs text-muted-foreground">Product Manager</div>
+								<div class="text-xs text-muted-foreground">
+									Product Manager
+								</div>
 							</div>
 						</div>
 					</div>
@@ -89,50 +128,112 @@ import Features from '../components/Features.astro';
 		<section id="faq" class="py-24">
 			<div class="container mx-auto px-4 md:px-8 max-w-3xl">
 				<div class="text-center mb-16">
-					<h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4">Frequently Asked Questions</h2>
+					<h2
+						class="text-3xl md:text-5xl font-bold tracking-tight mb-4"
+					>
+						Frequently Asked Questions
+					</h2>
 				</div>
 				<div class="space-y-4">
 					<div class="border rounded-lg p-6 bg-card">
-						<h3 class="font-bold text-lg mb-2">Can I use my own models?</h3>
-						<p class="text-muted-foreground">Yes. You can configure any OpenAI-compatible API endpoint, meaning local Ollama instances, Azure OpenAI, or OpenRouter work out of the box.</p>
+						<h3 class="font-bold text-lg mb-2">
+							How does Tool Mocking work?
+						</h3>
+						<p class="text-muted-foreground">
+							Define mock schemas and outputs (text or JSON) for
+							functions like weather or database lookups. Akalin
+							passes these natively to target models during
+							evaluations and automatically feeds back mock
+							responses when the LLM triggers function calls.
+						</p>
 					</div>
 					<div class="border rounded-lg p-6 bg-card">
-						<h3 class="font-bold text-lg mb-2">How do custom rubrics work?</h3>
-						<p class="text-muted-foreground">Instead of a simple pass/fail, you define a custom prompt that the evaluator LLM uses to grade responses on a scale of 0.0 to 1.0 based on your specific criteria.</p>
+						<h3 class="font-bold text-lg mb-2">
+							Can I use my own models?
+						</h3>
+						<p class="text-muted-foreground">
+							Yes. You can configure any OpenAI-compatible API
+							endpoint, meaning local Ollama instances, Azure
+							OpenAI, or OpenRouter work out of the box.
+						</p>
 					</div>
 					<div class="border rounded-lg p-6 bg-card">
-						<h3 class="font-bold text-lg mb-2">Is my data private?</h3>
-						<p class="text-muted-foreground">Since Akalin is open source, you can host the entire backend and database within your own infrastructure. Your prompt data never leaves your VPC unless sent to your chosen LLM provider.</p>
+						<h3 class="font-bold text-lg mb-2">
+							How do custom rubrics work?
+						</h3>
+						<p class="text-muted-foreground">
+							Instead of a simple pass/fail, you define a custom
+							prompt that the evaluator LLM uses to grade
+							responses on a scale of 0.0 to 1.0 based on your
+							specific criteria.
+						</p>
+					</div>
+					<div class="border rounded-lg p-6 bg-card">
+						<h3 class="font-bold text-lg mb-2">
+							Is my data private?
+						</h3>
+						<p class="text-muted-foreground">
+							Since Akalin is open source, you can host the entire
+							backend and database within your own infrastructure.
+							Your prompt data never leaves your VPC unless sent
+							to your chosen LLM provider.
+						</p>
 					</div>
 				</div>
 			</div>
 		</section>
 
 		{/* Final CTA */}
-		<section class="py-32 relative overflow-hidden bg-primary text-primary-foreground">
+		<section
+			class="py-32 relative overflow-hidden bg-primary text-primary-foreground"
+		>
 			<div class="absolute inset-0 bg-grid opacity-20"></div>
-			<div class="container mx-auto px-4 md:px-8 text-center relative z-10">
-				<h2 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-6">Ready to Ship Better AI?</h2>
+			<div
+				class="container mx-auto px-4 md:px-8 text-center relative z-10"
+			>
+				<h2
+					class="text-4xl md:text-5xl font-extrabold tracking-tight mb-6"
+				>
+					Ready to Ship Better AI?
+				</h2>
 				<p class="text-xl mb-10 max-w-2xl mx-auto opacity-90">
-					Stop guessing if your prompts are improving. Start measuring them systematically today.
+					Stop guessing if your prompts are improving. Start measuring
+					them systematically today.
 				</p>
-				<button class="bg-background text-foreground h-14 px-8 text-lg rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold">
+				<button
+					class="bg-background text-foreground h-14 px-8 text-lg rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold"
+				>
 					Deploy Open Source Version
 				</button>
 			</div>
 		</section>
 	</main>
-	
+
 	<footer class="py-12 border-t bg-background">
-		<div class="container mx-auto px-4 md:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+		<div
+			class="container mx-auto px-4 md:px-8 flex flex-col md:flex-row items-center justify-between gap-6"
+		>
 			<div class="flex items-center gap-2">
-				<img src="/icon.webp" alt="Akalin Icon" class="size-6 rounded" />
+				<img
+					src="/icon.webp"
+					alt="Akalin Icon"
+					class="size-6 rounded"
+				/>
 				<span class="font-bold tracking-tight">Akalin</span>
 			</div>
-			<p class="text-sm text-muted-foreground">© 2026 Akalin. Open Source under GPL-3.0 License.</p>
+			<p class="text-sm text-muted-foreground">
+				© 2026 Akalin. Open Source under GPL-3.0 License.
+			</p>
 			<div class="flex gap-4 text-sm font-medium">
-				<a href="https://github.com/confusionhill/akalin" class="text-muted-foreground hover:text-foreground">GitHub</a>
-				<a href="/blog" class="text-muted-foreground hover:text-foreground">Blog</a>
+				<a
+					href="https://github.com/confusionhill/akalin"
+					class="text-muted-foreground hover:text-foreground"
+					>GitHub</a
+				>
+				<a
+					href="/blog"
+					class="text-muted-foreground hover:text-foreground">Blog</a
+				>
 			</div>
 		</div>
 	</footer>
