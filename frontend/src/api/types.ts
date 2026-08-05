@@ -77,12 +77,14 @@ export interface EvaluationRun {
   target_model: string
   evaluator_provider_id: string
   evaluator_model: string
+  model_used: string
   status: RunStatus
   pass_threshold: number
   is_passed: boolean | null
   average_score: number | null
   failure_reason: string | null
   blacklisted_test_case_ids: string[]
+  enable_memory: boolean
   run_by: string
   created_at: string
   completed_at: string | null
@@ -140,6 +142,8 @@ export interface CreateEvaluationInput {
   target_model: string
   evaluator_provider_id: string
   evaluator_model: string
+  model_used?: string
   pass_threshold: number
   blacklisted_test_case_ids?: string[]
+  enable_memory?: boolean
 }

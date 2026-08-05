@@ -100,8 +100,10 @@ export function EvaluationDetailPage() {
         target_model: run.target_model,
         evaluator_provider_id: run.evaluator_provider_id,
         evaluator_model: run.evaluator_model,
+        model_used: run.model_used,
         pass_threshold: run.pass_threshold,
         blacklisted_test_case_ids: run.blacklisted_test_case_ids ?? [],
+        enable_memory: run.enable_memory ?? false,
       })
       toast.success("Re-run started")
       navigate(`/projects/${projectId}/evaluations/${created.id}`)
@@ -204,6 +206,9 @@ export function EvaluationDetailPage() {
       {run && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryCard label="Model">
+              <span className="text-sm font-mono">{run.model_used}</span>
+            </SummaryCard>
             <SummaryCard label="Status">
               <div className="flex items-center gap-2">
                 {isRunning && <Loader2 className="size-4 animate-spin" />}
@@ -215,6 +220,11 @@ export function EvaluationDetailPage() {
                 {run.average_score !== null
                   ? run.average_score.toFixed(2)
                   : "—"}
+              </span>
+            </SummaryCard>
+            <SummaryCard label="Pass threshold">
+              <span className="text-xl font-semibold">
+                {run.pass_threshold.toFixed(2)}
               </span>
             </SummaryCard>
             <SummaryCard label="Result">
@@ -229,11 +239,6 @@ export function EvaluationDetailPage() {
                   <XCircle className="size-5" /> Failed
                 </span>
               )}
-            </SummaryCard>
-            <SummaryCard label="Pass threshold">
-              <span className="text-xl font-semibold">
-                {run.pass_threshold.toFixed(2)}
-              </span>
             </SummaryCard>
           </div>
 
@@ -253,22 +258,39 @@ export function EvaluationDetailPage() {
             </Card>
           )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Configuration</CardTitle>
-            </CardHeader>
-            <CardContent className="text-muted-foreground grid gap-2 text-sm sm:grid-cols-2">
-              <KV label="Target">{run.target_model}</KV>
-              <KV label="Evaluator">{run.evaluator_model}</KV>
-              <KV label="Started">{formatDateTime(run.created_at)}</KV>
-              <KV label="Completed">{formatDateTime(run.completed_at)}</KV>
-              <KV label="Excluded">
-                {(run.blacklisted_test_case_ids?.length ?? 0) > 0
-                  ? `${run.blacklisted_test_case_ids.length} test case${run.blacklisted_test_case_ids.length === 1 ? "" : "s"}`
-                  : "None"}
-              </KV>
-            </CardContent>
-          </Card>
+<Card>
+             <CardHeader>
+               <CardTitle className="flex items-center gap-2 text-sm">
+                 Configuration
+                 {run.enable_memory && (
+                   <Badge variant="success" className="ml-auto text-xs">
+                     Memory: ON
+                   </Badge>
+                 )}
+               </CardTitle>
+             </CardHeader>
+             <CardContent className="text-muted-foreground grid gap-2 text-sm sm:grid-cols-2">
+               <KV label="Target">{run.target_model}</KV>
+               <KV label="Evaluator">{run.evaluator_model}</KV>
+               <KV label="Model used">{run.model_used}</KV>
+               <KV label="Started">{formatDateTime(run.created_at)}</KV>
+               <KV label="Completed">{formatDateTime(run.completed_at)}</KV>
+               <KV label="Excluded">
+                 {(run.blacklisted_test_case_ids?.length ?? 0) > 0
+                   ? `${run.blacklisted_test_case_ids.length} test case${run.blacklisted_test_case_ids.length === 1 ? "" : "s"}`
+                   : "None"}
+               </KV>
+               <KV label="Memory">
+                 {run.enable_memory ? (
+                   <Badge variant="success" className="text-xs">
+                     ON
+                   </Badge>
+                 ) : (
+                   <span className="text-xs text-muted-foreground">OFF</span>
+                 )}
+               </KV>
+             </CardContent>
+           </Card>
 
           <Card>
             <CardHeader>

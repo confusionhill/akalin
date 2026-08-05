@@ -754,18 +754,18 @@ func (h *Handler) CreateEvaluation(c echo.Context) error {
 
 	query := `
 		INSERT INTO evaluation_runs (
-			project_id, system_prompt_id, evaluation_prompt_id, 
-			target_provider_id, target_model, evaluator_provider_id, 
-			evaluator_model, status, pass_threshold, run_by, blacklisted_test_case_ids
+			project_id, system_prompt_id, evaluation_prompt_id,
+			target_provider_id, target_model, evaluator_provider_id,
+			evaluator_model, model_used, status, pass_threshold, run_by, blacklisted_test_case_ids, enable_memory
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $7, 'pending', $8, $9, $10, $11)
 		RETURNING *
 	`
 	var run models.EvaluationRun
 	err = h.DB.Get(&run, query,
 		projectID, req.SystemPromptID, req.EvaluationPromptID,
 		req.TargetProviderID, req.TargetModel, req.EvaluatorProviderID,
-		req.EvaluatorModel, req.PassThreshold, userID, req.BlacklistedTestCaseIDs,
+		req.EvaluatorModel, req.PassThreshold, userID, req.BlacklistedTestCaseIDs, req.EnableMemory,
 	)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

@@ -135,12 +135,14 @@ type EvaluationRun struct {
 	TargetModel         string     `db:"target_model" json:"target_model" validate:"required"`
 	EvaluatorProviderID uuid.UUID  `db:"evaluator_provider_id" json:"evaluator_provider_id" validate:"required"`
 	EvaluatorModel      string     `db:"evaluator_model" json:"evaluator_model" validate:"required"`
+	ModelUsed           string     `db:"model_used" json:"model_used"`
 	Status              string     `db:"status" json:"status"`
 	PassThreshold       float64    `db:"pass_threshold" json:"pass_threshold" validate:"required,gte=0,lte=1"`
 	IsPassed            *bool       `db:"is_passed" json:"is_passed"`
 	AverageScore        *float64    `db:"average_score" json:"average_score"`
 	FailureReason       *string     `db:"failure_reason" json:"failure_reason"`
 	BlacklistedTestCaseIDs StringArray `db:"blacklisted_test_case_ids" json:"blacklisted_test_case_ids"`
+	EnableMemory        bool        `db:"enable_memory" json:"enable_memory"`
 	RunBy               uuid.UUID   `db:"run_by" json:"run_by"`
 	CreatedAt           time.Time  `db:"created_at" json:"created_at"`
 	CompletedAt         *time.Time `db:"completed_at" json:"completed_at"`

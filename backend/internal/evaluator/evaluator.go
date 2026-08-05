@@ -18,14 +18,6 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 	defer cancel()
 
 	logPrefix := fmt.Sprintf("[eval run=%s]", runID.String())
-	log.Printf("%s starting evaluation pipeline", logPrefix)
-
-	// 1. Update status to 'running'
-	_, err := db.Exec("UPDATE evaluation_runs SET status = 'running', failure_reason = NULL WHERE id = $1", runID)
-	if err != nil {
-		log.Printf("%s failed to update status to running: %v", logPrefix, err)
-		return
-	}
 
 	// Helper to mark run as failed
 	markAsFailed := func(failErr error) {
@@ -40,8 +32,15 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 		}
 	}
 
+	// 1. Update status to 'running'
+	_, err := db.Exec("UPDATE evaluation_runs SET status = 'running', failure_reason = NULL WHERE id = $1", runID)
+	if err != nil {
+		log.Printf("%s failed to update status to running: %v", logPrefix, err)
+		return
+	}
+
 	// 2. Fetch full run detail
-	var run models.EvaluationRun
+	var run EvaluationRun
 	err = db.Get(&run, "SELECT * FROM evaluation_runs WHERE id = $1", runID)
 	if err != nil {
 		markAsFailed(fmt.Errorf("failed to fetch run details: %w", err))
@@ -49,6 +48,18 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 	}
 	log.Printf("%s config: target=%s provider=%s evaluator=%s provider=%s threshold=%.2f",
 		logPrefix, run.TargetModel, run.TargetProviderID, run.EvaluatorModel, run.EvaluatorProviderID, run.PassThreshold)
+
+	// Initialize memory if enabled
+	var memory *EvaluationMemory
+	if run.EnableMemory {
+		memory = &EvaluationMemory{
+			Version:             1,
+			ConversationHistory: []MemoryEntry{},
+			GeneratedOutputs:    []OutputRecord{},
+			Evaluations:         []EvaluationRecord{},
+			Notes:               make(map[string]interface{}),
+		}
+	}
 
 	// 3. Fetch system prompt
 	var sysPrompt models.SystemPrompt
@@ -122,9 +133,16 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 
 	for i, tc := range testCases {
 		casePrefix := fmt.Sprintf("%s case[%d/%d id=%s]", logPrefix, i+1, len(testCases), tc.ID)
-		// 8. Call target model to get output
-		log.Printf("%s generating target response with model %s", casePrefix, run.TargetModel)
-		generatedOutput, err := targetClient.Generate(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, 0.0)
+		
+		var generatedOutput string
+		var err error
+
+		if run.EnableMemory && memory != nil && len(memory.ConversationHistory) > 1 {
+			generatedOutput, err = targetClient.GenerateWithMemory(ctx, run.TargetModel, sysPrompt.Content, buildConversationHistory(memory.ConversationHistory), 0.0)
+		} else {
+			generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, 0.0)
+		}
+
 		if err != nil {
 			log.Printf("%s target generation failed: %v", casePrefix, err)
 			generatedOutput = fmt.Sprintf("ERROR GENERATING OUTPUT: %v", err)
@@ -132,7 +150,6 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 			isPassed := false
 			reason := "Target generation failed: " + err.Error()
 
-			// Save error result
 			err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reason)
 			if err != nil {
 				log.Printf("%s failed to save error result: %v", casePrefix, err)
@@ -141,7 +158,24 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 		}
 		log.Printf("%s target generation ok, len=%d", casePrefix, len(generatedOutput))
 
-		// 9. Call evaluator model to grade the output
+		if run.EnableMemory && memory != nil {
+			memory.ConversationHistory = append(memory.ConversationHistory, MemoryEntry{
+				Role:    "user",
+				Content: tc.InputPrompt,
+				Time:    time.Now(),
+			})
+			memory.ConversationHistory = append(memory.ConversationHistory, MemoryEntry{
+				Role:    "assistant",
+				Content: generatedOutput,
+				Time:    time.Now(),
+			})
+			memory.GeneratedOutputs = append(memory.GeneratedOutputs, OutputRecord{
+				TestCaseID: tc.ID.String(),
+				Output:     generatedOutput,
+				Timestamp:  time.Now(),
+			})
+		}
+
 		evaluatorUserPrompt := fmt.Sprintf(
 			"Evaluation Rubric:\n%s\n\nExpected Output:\n%s\n\nActual Generated Output:\n%s\n\nPlease evaluate. You MUST output EXACTLY in the format:\nSCORE: <0.0-1.0>\nREASONING: <brief reasoning>",
 			evalPrompt.Content,
@@ -150,7 +184,11 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 		)
 
 		log.Printf("%s grading with model %s", casePrefix, run.EvaluatorModel)
-		evalResponse, err := evaluatorClient.Generate(ctx, run.EvaluatorModel, "", evaluatorUserPrompt, 0.0)
+		var evalResponse string
+		// Note: Use regular Generate for evaluator, not GenerateWithMemory
+		// Memory is only for the target model's conversation context,
+		// but evaluator should evaluate each test case independently
+		evalResponse, err = evaluatorClient.Generate(ctx, run.EvaluatorModel, "", evaluatorUserPrompt, 0.0)
 
 		var score float64
 		var reasoning string
@@ -163,11 +201,19 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 			log.Printf("%s graded score=%.2f passed=%t", casePrefix, score, score >= run.PassThreshold)
 		}
 
+		if run.EnableMemory && memory != nil {
+			memory.Evaluations = append(memory.Evaluations, EvaluationRecord{
+				TestCaseID: tc.ID.String(),
+				Score:      score,
+				Reasoning:  reasoning,
+				Timestamp:  time.Now(),
+			})
+		}
+
 		isPassed := score >= run.PassThreshold
 		totalScore += score
 		completedCount++
 
-		// 10. Save successful/failed result
 		err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reasoning)
 		if err != nil {
 			log.Printf("%s failed to save result: %v", casePrefix, err)
@@ -202,6 +248,14 @@ func saveResult(db *sqlx.DB, runID, testCaseID uuid.UUID, genOutput string, scor
 	`
 	_, err := db.Exec(query, runID, testCaseID, genOutput, score, isPassed, reasoning)
 	return err
+}
+
+func buildConversationHistory(entries []MemoryEntry) string {
+	var history strings.Builder
+	for _, entry := range entries {
+		history.WriteString(fmt.Sprintf("%s: %s\n", strings.ToLower(entry.Role), entry.Content))
+	}
+	return strings.TrimSpace(history.String())
 }
 
 func parseEvaluation(response string) (float64, string) {
@@ -241,3 +295,5 @@ func parseEvaluation(response string) (float64, string) {
 
 	return score, reasoning
 }
+
+type EvaluationRun models.EvaluationRun

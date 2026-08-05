@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowRight, CheckIcon, Loader2, Play, Plus, Trash2 } from "lucide-react"
+import { ArrowRight, CheckIcon, Loader2, Play, Plus, Trash2, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -57,6 +57,36 @@ const statusVariant: Record<
   failed: "destructive",
 }
 
+function calculateModelStats(runs: EvaluationRun[]) {
+  const completedRuns = runs.filter(r => r.status === "completed" && r.average_score !== null)
+
+  const stats = new Map<string, {
+    model: string
+    runs: number
+    scores: number[]
+  }>()
+
+  completedRuns.forEach(run => {
+    const model = run.model_used
+    if (!stats.has(model)) {
+      stats.set(model, { model, runs: 0, scores: [] })
+    }
+    const stat = stats.get(model)!
+    stat.runs++
+    stat.scores.push(run.average_score!)
+  })
+
+  return Array.from(stats.values())
+    .map(({ model, runs, scores }) => ({
+      model,
+      runs,
+      averageScore: scores.reduce((a, b) => a + b, 0) / scores.length,
+      bestScore: Math.max(...scores),
+      worstScore: Math.min(...scores),
+    }))
+    .sort((a, b) => b.averageScore! - a.averageScore!)
+}
+
 export function EvaluationsTab({ projectId }: { projectId: string }) {
   const navigate = useNavigate()
   const [runs, setRuns] = useState<EvaluationRun[] | null>(null)
@@ -79,6 +109,7 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
   const [evaluatorProviderId, setEvaluatorProviderId] = useState("")
   const [evaluatorModel, setEvaluatorModel] = useState("")
   const [threshold, setThreshold] = useState("0.8")
+  const [enableMemory, setEnableMemory] = useState(false)
 
   const load = async () => {
     setError(false)
@@ -151,8 +182,10 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
         target_model: targetModel.trim(),
         evaluator_provider_id: evaluatorProviderId,
         evaluator_model: evaluatorModel.trim(),
+        model_used: targetModel.trim(),
         pass_threshold: Number.parseFloat(threshold) || 0,
         blacklisted_test_case_ids: Array.from(disabledTc),
+        enable_memory: enableMemory,
       })
       toast.success("Evaluation run started")
       setOpen(false)
@@ -297,16 +330,39 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
                     placeholder="gpt-4o"
                   />
                 </FormField>
-              <FormField label="Pass threshold (0.0 – 1.0)">
-                <Input
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={threshold}
-                  onChange={(e) => setThreshold(e.target.value)}
-                />
-              </FormField>
+<FormField label="Pass threshold (0.0 – 1.0)">
+                 <Input
+                   type="number"
+                   min={0}
+                   max={1}
+                   step={0.05}
+                   value={threshold}
+                   onChange={(e) => setThreshold(e.target.value)}
+                 />
+               </FormField>
+
+               <FormField label="Enable memory">
+                 <div className="flex items-center gap-2">
+                   <button
+                     type="button"
+                     onClick={() => setEnableMemory(!enableMemory)}
+                     className={
+                       "inline-flex h-6 w-11 items-center rounded-full transition-colors " +
+                       (enableMemory ? "bg-primary" : "bg-input")
+                     }
+                   >
+                     <span
+                       className={
+                         "inline-block h-4 w-4 transform rounded-full bg-white transition-transform " +
+                         (enableMemory ? "translate-x-5" : "translate-x-1")
+                       }
+                     />
+                   </button>
+                   <span className="text-sm text-muted-foreground">
+                     {enableMemory ? "ON" : "OFF"}
+                   </span>
+                 </div>
+               </FormField>
 
               <div className="flex w-full min-w-0 flex-col gap-2">
                 <div className="flex items-center justify-between">
@@ -467,6 +523,53 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
             </Card>
           ))}
         </div>
+      )}
+
+      {runs !== null && runs.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Sparkles className="size-4" />
+              Model Performance Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {calculateModelStats(runs).length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {calculateModelStats(runs).map((stat) => (
+                  <div
+                    key={stat.model}
+                    className="flex flex-col gap-1 rounded-lg border p-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm">{stat.model}</span>
+                      <Badge variant="outline">
+                        {stat.runs} run{stat.runs !== 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+                    <div className="text-muted-foreground text-xs">
+                      Average: <span className="font-medium">{stat.averageScore?.toFixed(2)}</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div
+                        className="bg-primary h-2 rounded-full transition-all"
+                        style={{ width: `${(stat.averageScore || 0) * 100}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Best: {stat.bestScore?.toFixed(2)}</span>
+                      <span>Worst: {stat.worstScore?.toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm text-center py-4">
+                No completed evaluations to display
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <ConfirmDialog

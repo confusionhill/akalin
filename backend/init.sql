@@ -87,12 +87,14 @@ CREATE TABLE evaluation_runs (
     target_model VARCHAR(100) NOT NULL,
     evaluator_provider_id UUID REFERENCES provider_configs(id) ON DELETE SET NULL,
     evaluator_model VARCHAR(100) NOT NULL,
+    model_used VARCHAR(100) NOT NULL,
     status VARCHAR(50) DEFAULT 'pending', -- pending, running, completed, failed
     pass_threshold NUMERIC(3,2),
     is_passed BOOLEAN,
     average_score NUMERIC(3,2),
     failure_reason TEXT,
     blacklisted_test_case_ids JSONB DEFAULT '[]'::jsonb,
+    enable_memory BOOLEAN DEFAULT false,
     run_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP WITH TIME ZONE

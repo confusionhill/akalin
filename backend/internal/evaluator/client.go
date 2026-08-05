@@ -49,13 +49,52 @@ func NewLLMClient(baseURL, apiKey string, customHeaders map[string]string) *LLMC
 }
 
 func (c *LLMClient) Generate(ctx context.Context, model string, systemPrompt, userPrompt string, temperature float64) (string, error) {
-	url := fmt.Sprintf("%s/chat/completions", c.BaseURL)
+	messages, err := buildMessages(systemPrompt, userPrompt, "")
+	if err != nil {
+		return "", err
+	}
+	return c.makeRequest(ctx, model, messages, temperature)
+}
 
+func buildMessages(systemPrompt, userPrompt, conversationHistory string) ([]ChatMessage, error) {
 	messages := []ChatMessage{}
+
 	if systemPrompt != "" {
 		messages = append(messages, ChatMessage{Role: "system", Content: systemPrompt})
 	}
-	messages = append(messages, ChatMessage{Role: "user", Content: userPrompt})
+
+	if conversationHistory != "" {
+		historyLines := strings.Split(conversationHistory, "\n")
+		for _, line := range historyLines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			if strings.HasPrefix(strings.ToLower(line), "user:") {
+				content := strings.TrimPrefix(line, "user:")
+				content = strings.TrimSpace(content)
+				if content != "" {
+					messages = append(messages, ChatMessage{Role: "user", Content: content})
+				}
+			} else if strings.HasPrefix(strings.ToLower(line), "assistant:") {
+				content := strings.TrimPrefix(line, "assistant:")
+				content = strings.TrimSpace(content)
+				if content != "" {
+					messages = append(messages, ChatMessage{Role: "assistant", Content: content})
+				}
+			}
+		}
+	}
+
+	if userPrompt != "" {
+		messages = append(messages, ChatMessage{Role: "user", Content: userPrompt})
+	}
+
+	return messages, nil
+}
+
+func (c *LLMClient) makeRequest(ctx context.Context, model string, messages []ChatMessage, temperature float64) (string, error) {
+	url := fmt.Sprintf("%s/chat/completions", c.BaseURL)
 
 	reqBody := ChatCompletionsRequest{
 		Model:       model,
@@ -133,4 +172,12 @@ func (c *LLMClient) Generate(ctx context.Context, model string, systemPrompt, us
 	}
 
 	return chatResp.Choices[0].Message.Content, nil
+}
+
+func (c *LLMClient) GenerateWithMemory(ctx context.Context, model string, systemPrompt string, conversationHistory string, temperature float64) (string, error) {
+	messages, err := buildMessages(systemPrompt, "", conversationHistory)
+	if err != nil {
+		return "", err
+	}
+	return c.makeRequest(ctx, model, messages, temperature)
 }
