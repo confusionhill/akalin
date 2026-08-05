@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowRight, CheckIcon, Loader2, Play, Plus, Trash2, Sparkles, Wrench } from "lucide-react"
+import { ArrowRight, CheckIcon, Loader2, Play, Plus, Trash2, Sparkles, Wrench, XCircle } from "lucide-react"
 
 import { toast } from "sonner"
 
@@ -221,6 +221,16 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
       toast.error(err instanceof Error ? err.message : "Failed to delete run")
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const handleCancel = async (runId: string) => {
+    try {
+      await evaluationsApi.cancel(projectId, runId)
+      toast.success("Evaluation run cancelled")
+      void load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to cancel run")
     }
   }
 
@@ -552,6 +562,20 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
                     {run.evaluator_model}
                   </CardTitle>
                   <div className="flex items-center gap-1">
+                    {(run.status === "pending" || run.status === "running") && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-warning"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void handleCancel(run.id)
+                        }}
+                        title="Cancel Run"
+                      >
+                        <XCircle className="size-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

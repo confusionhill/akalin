@@ -13,8 +13,8 @@ import (
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
 )
 
-func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
 	logPrefix := fmt.Sprintf("[eval run=%s]", runID.String())

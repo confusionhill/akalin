@@ -111,5 +111,7 @@ export const evaluationsApi = {
     http.get<RunDetails>(`/projects/${projectId}/evaluations/${runId}`),
   remove: (projectId: string, runId: string) =>
     http.del<void>(`/projects/${projectId}/evaluations/${runId}`),
+  cancel: (projectId: string, runId: string) =>
+    http.post<void>(`/projects/${projectId}/evaluations/${runId}/cancel`, {}),
 }
 

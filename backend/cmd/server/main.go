@@ -14,6 +14,7 @@ import (
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/handlers"
 	authMW "github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/middleware"
 	valBridge "github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/validator"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/worker"
 )
 
 func main() {
@@ -108,8 +109,11 @@ func main() {
 	api.GET("/projects/:id/evaluations", h.GetEvaluations)
 	api.POST("/projects/:id/evaluations", h.CreateEvaluation)
 	api.GET("/projects/:id/evaluations/:run_id", h.GetEvaluationDetails)
+	api.POST("/projects/:id/evaluations/:run_id/cancel", h.CancelEvaluation)
 	api.DELETE("/projects/:id/evaluations/:run_id", h.DeleteEvaluation)
 
+	// Start Background Worker Pool for Evaluations
+	go worker.StartEvaluationWorkers(dbConn, 3)
 
 	// Start Server
 	serverAddr := fmt.Sprintf(":%s", port)

@@ -12,9 +12,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
-
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/evaluator"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/worker"
 )
 
 type Handler struct {
@@ -811,10 +810,49 @@ func (h *Handler) CreateEvaluation(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Trigger asynchronous pipeline execution
-	go evaluator.RunPipeline(h.DB, run.ID)
+	// Pipeline will be picked up by background worker pool
 
 	return c.JSON(http.StatusAccepted, run)
+}
+
+func (h *Handler) CancelEvaluation(c echo.Context) error {
+	_, _, _, err := h.getAuth(c)
+	if err != nil {
+		return err
+	}
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid project ID")
+	}
+	runID, err := uuid.Parse(c.Param("run_id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid run ID")
+	}
+
+	// 1. Update database state if it's currently pending or running
+	res, err := h.DB.Exec(`
+		UPDATE evaluation_runs 
+		SET status = 'cancelled', failure_reason = 'Cancelled by user', completed_at = NOW() 
+		WHERE id = $1 AND project_id = $2 AND status IN ('pending', 'running')
+	`, runID, projectID)
+	
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	if rowsAffected == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "Run not found or cannot be cancelled")
+	}
+
+	// 2. Abort active execution context if running in this instance
+	worker.CancelRun(runID)
+
+	return c.NoContent(http.StatusOK)
 }
 
 func (h *Handler) GetEvaluationDetails(c echo.Context) error {
