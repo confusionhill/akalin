@@ -61,61 +61,77 @@ import Features from "../components/Features.astro";
 					<h2
 						class="text-3xl md:text-5xl font-bold tracking-tight mb-4"
 					>
-						Loved by Engineers
+						Loved by Vibe Coder!
 					</h2>
 				</div>
 				<div
 					class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto"
 				>
-					<div class="bg-background rounded-xl p-6 border shadow-sm">
+					<div
+						class="bg-background rounded-xl p-6 border shadow-sm flex flex-col justify-between hover:border-primary/40 transition-colors"
+					>
 						<p class="text-muted-foreground mb-4">
-							"Akalin completely changed how we ship AI features.
-							We no longer guess if a prompt tweak breaks
-							something else."
+							"Akalin literally saved our repo from a massive L.
+							We completely stopped testing on vibes. Now we
+							benchmark system prompts and mock tool calls like
+							actual pros. No cap 🧢."
 						</p>
-						<div class="flex items-center gap-3">
-							<div class="w-10 h-10 rounded-full bg-primary/20">
+						<div class="flex items-center gap-3 pt-2 border-t">
+							<div
+								class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-lg"
+							>
+								⚡
+							</div>
+							<div>
+								<div class="font-bold text-sm">24/7 Vibers</div>
+								<div class="text-xs text-muted-foreground">
+									Prompt Engineers @ Midnight
+								</div>
+							</div>
+						</div>
+					</div>
+					<div
+						class="bg-background rounded-xl p-6 border shadow-sm flex flex-col justify-between hover:border-primary/40 transition-colors"
+					>
+						<p class="text-muted-foreground mb-4">
+							"The Mock Tool Calling & BYOK features are main
+							character energy 💅. Being able to blacklist tools
+							per run without draining API credits? We cooked fr
+							fr."
+						</p>
+						<div class="flex items-center gap-3 pt-2 border-t">
+							<div
+								class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-lg"
+							>
+								🔥
+							</div>
+							<div>
+								<div class="font-bold text-sm">No-Cap Devs</div>
+								<div class="text-xs text-muted-foreground">
+									Builds Different Gang
+								</div>
+							</div>
+						</div>
+					</div>
+					<div
+						class="bg-background rounded-xl p-6 border shadow-sm flex flex-col justify-between hover:border-primary/40 transition-colors"
+					>
+						<p class="text-muted-foreground mb-4">
+							"Running pipeline evaluations manually used to give me instant anxiety. Now we benchmark test cases with custom rubrics and audit tool calls with zero stress. Ate and left no crumbs 🤌."
+						</p>
+
+						<div class="flex items-center gap-3 pt-2 border-t">
+							<div
+								class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-lg"
+							>
+								💀
 							</div>
 							<div>
 								<div class="font-bold text-sm">
-									Sarah Jenkins
+									Sleep-Deprived Coders
 								</div>
 								<div class="text-xs text-muted-foreground">
-									Lead AI Engineer
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="bg-background rounded-xl p-6 border shadow-sm">
-						<p class="text-muted-foreground mb-4">
-							"The BYOK feature is killer. Being able to test
-							against our local fine-tunes without exposing them
-							is exactly what we needed."
-						</p>
-						<div class="flex items-center gap-3">
-							<div class="w-10 h-10 rounded-full bg-primary/20">
-							</div>
-							<div>
-								<div class="font-bold text-sm">David Chen</div>
-								<div class="text-xs text-muted-foreground">
-									CTO, DataCorp
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="bg-background rounded-xl p-6 border shadow-sm">
-						<p class="text-muted-foreground mb-4">
-							"Versioning system prompts was a nightmare before
-							this. Now we have full audit trails for every
-							generation."
-						</p>
-						<div class="flex items-center gap-3">
-							<div class="w-10 h-10 rounded-full bg-primary/20">
-							</div>
-							<div>
-								<div class="font-bold text-sm">Maya Patel</div>
-								<div class="text-xs text-muted-foreground">
-									Product Manager
+									Production Survivors
 								</div>
 							</div>
 						</div>
@@ -200,11 +216,14 @@ import Features from "../components/Features.astro";
 					Stop guessing if your prompts are improving. Start measuring
 					them systematically today.
 				</p>
-				<button
-					class="bg-background text-foreground h-14 px-8 text-lg rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold"
+				<a
+					href="https://github.com/confusionhill/akalin"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="inline-flex items-center justify-center bg-background text-foreground h-14 px-8 text-lg rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold"
 				>
 					Deploy Open Source Version
-				</button>
+				</a>
 			</div>
 		</section>
 	</main>

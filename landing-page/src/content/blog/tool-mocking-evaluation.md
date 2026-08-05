@@ -2,9 +2,11 @@
 title: 'Introducing Tool Mocking & Function Calling Evaluation in Akalin'
 description: 'Systematically test how your LLMs utilize tools, handle function calling responses, and adhere to tool usage instructions.'
 pubDate: '2026-08-05'
+heroImage: '/tools-mock.png'
 ---
 
-# Introducing Tool Mocking for LLM Evaluation
+
+# Tool Mocking for LLM Evaluation
 
 As AI applications evolve from simple text completion to complex autonomous agents, **tool calling (function calling)** has become an essential building block. However, evaluating whether an LLM invokes tools correctly—and refrains from calling them when unnecessary—is notoriously difficult.
 

@@ -2,7 +2,9 @@
 title: 'Announcing Akalin: LLM Evaluation Pipeline'
 description: 'We are thrilled to announce the open-source release of Akalin, the platform designed to systematically evaluate your LLM system prompts.'
 pubDate: '2026-08-05'
+heroImage: '/dashboard-login.png'
 ---
+
 
 # Welcome to Akalin
 

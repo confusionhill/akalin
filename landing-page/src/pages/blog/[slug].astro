@@ -21,6 +21,11 @@ const { Content } = await render(post);
 	<main class="container mx-auto px-4 md:px-8 py-16 max-w-3xl min-h-[calc(100vh-64px)]">
 		<article class="prose prose-lg dark:prose-invert prose-headings:font-bold prose-a:text-primary">
 			<header class="mb-10 not-prose border-b pb-8">
+				{post.data.heroImage && (
+					<div class="mb-8 overflow-hidden rounded-xl border shadow-lg">
+						<img src={post.data.heroImage} alt={post.data.title} class="w-full h-auto object-cover max-h-[400px]" />
+					</div>
+				)}
 				<h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">{post.data.title}</h1>
 				<p class="text-muted-foreground">
 					{post.data.pubDate.toLocaleDateString('en-us', {
@@ -30,6 +35,7 @@ const { Content } = await render(post);
 					})}
 				</p>
 			</header>
+
 			<Content />
 		</article>
 	</main>
