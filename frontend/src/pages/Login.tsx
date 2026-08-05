@@ -25,6 +25,8 @@ export function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login")
   const [tenantName, setTenantName] = useState("")
   const [email, setEmail] = useState("")
+  const [handle, setHandle] = useState("")
+  const [fullName, setFullName] = useState("")
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [copiedToken, setCopiedToken] = useState(false)
@@ -52,7 +54,7 @@ export function LoginPage() {
       if (mode === "login") {
         await login(email, password)
       } else {
-        await register(tenantName, email, password)
+        await register(tenantName, email, handle, fullName, password)
       }
       navigate(from, { replace: true })
       toast.success(mode === "login" ? "Welcome back!" : "Account created")
@@ -168,6 +170,30 @@ export function LoginPage() {
                   autoComplete="email"
                 />
               </div>
+              {mode === "register" && (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="handle">Handle</Label>
+                    <Input
+                      id="handle"
+                      value={handle}
+                      onChange={(e) => setHandle(e.target.value)}
+                      placeholder="johndoe"
+                      required
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input
+                      id="fullName"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="John Doe"
+                      required
+                    />
+                  </div>
+                </>
+              )}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
