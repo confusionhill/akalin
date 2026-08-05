@@ -9,8 +9,9 @@ import (
 )
 
 type Claims struct {
-	UserID   uuid.UUID `json:"user_id"`
-	TenantID uuid.UUID `json:"tenant_id"`
+	UserID     uuid.UUID `json:"user_id"`
+	TenantID   uuid.UUID `json:"tenant_id"`
+	AccessRole int       `json:"access_role"`
 	jwt.RegisteredClaims
 }
 
@@ -27,10 +28,11 @@ func NewJWTManager(secretKey string, expirationTime int) *JWTManager {
 }
 
 // GenerateToken creates a JWT token for a user
-func (j *JWTManager) GenerateToken(tenantID, userID uuid.UUID) (string, error) {
+func (j *JWTManager) GenerateToken(tenantID, userID uuid.UUID, accessRole int) (string, error) {
 	claims := &Claims{
-		UserID:   userID,
-		TenantID: tenantID,
+		UserID:     userID,
+		TenantID:   tenantID,
+		AccessRole: accessRole,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * time.Duration(j.expirationTime))),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

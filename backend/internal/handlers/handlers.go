@@ -27,31 +27,32 @@ func NewHandler(cfg *config.Config, db *sqlx.DB) *Handler {
 }
 
 // getAuth extracts user context from JWT token
-func (h *Handler) getAuth(c echo.Context) (uuid.UUID, uuid.UUID, error) {
+func (h *Handler) getAuth(c echo.Context) (uuid.UUID, uuid.UUID, int, error) {
 	// Get JWT token from Authorization header
 	authHeader := c.Request().Header.Get("Authorization")
 	if authHeader == "" {
-		return uuid.Nil, uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Missing Authorization header")
+		return uuid.Nil, uuid.Nil, 0, echo.NewHTTPError(http.StatusUnauthorized, "Missing Authorization header")
 	}
 
 	// Extract token (format: "Bearer <token>")
 	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 	if tokenString == authHeader {
-		return uuid.Nil, uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Invalid Authorization header format")
+		return uuid.Nil, uuid.Nil, 0, echo.NewHTTPError(http.StatusUnauthorized, "Invalid Authorization header format")
 	}
 
 	// Validate JWT token
 	jwtManager := auth.NewJWTManager(h.Cfg.JWTSigningKey, int(h.Cfg.JWTExpiration))
 	claims, err := jwtManager.ValidateToken(tokenString)
 	if err != nil {
-		return uuid.Nil, uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
+		return uuid.Nil, uuid.Nil, 0, echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
 	}
 
-	// Store tenant_id and user_id in context for middleware access
+	// Store tenant_id, user_id, and access_role in context for middleware access
 	c.Set("tenant_id", claims.TenantID)
 	c.Set("user_id", claims.UserID)
+	c.Set("access_role", claims.AccessRole)
 
-	return claims.TenantID, claims.UserID, nil
+	return claims.TenantID, claims.UserID, claims.AccessRole, nil
 }
 
 // -------------------------------------------------------------------------
@@ -99,17 +100,18 @@ func (h *Handler) Login(c echo.Context) error {
 		}
 	}
 
-	// Generate JWT token
+	// Generate JWT token including access_role
 	jwtManager := auth.NewJWTManager(h.Cfg.JWTSigningKey, int(h.Cfg.JWTExpiration))
-	token, err := jwtManager.GenerateToken(user.TenantID, user.ID)
+	token, err := jwtManager.GenerateToken(user.TenantID, user.ID, user.AccessRole)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate token")
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"id":    user.ID,
-		"email": user.Email,
-		"token": token,
+		"id":          user.ID,
+		"email":       user.Email,
+		"access_role": user.AccessRole,
+		"token":       token,
 	})
 }
 
@@ -149,8 +151,15 @@ func (h *Handler) Register(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// First tenant user gets tenant master / admin role (60)
 	var user models.User
-	err = tx.Get(&user, "INSERT INTO users (tenant_id, email, password_hash) VALUES ($1, $2, $3) RETURNING *", tenantID, req.Email, hash)
+	err = tx.Get(&user, "INSERT INTO users (tenant_id, email, password_hash, access_role) VALUES ($1, $2, $3, 60) RETURNING *", tenantID, req.Email, hash)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Set tenant master_user_id
+	_, err = tx.Exec("UPDATE tenants SET master_user_id = $1 WHERE id = $2", user.ID, tenantID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -159,17 +168,18 @@ func (h *Handler) Register(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Generate JWT token
+	// Generate JWT token including access_role
 	jwtManager := auth.NewJWTManager(h.Cfg.JWTSigningKey, int(h.Cfg.JWTExpiration))
-	token, err := jwtManager.GenerateToken(user.TenantID, user.ID)
+	token, err := jwtManager.GenerateToken(user.TenantID, user.ID, user.AccessRole)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate token")
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
-		"id":    user.ID,
-		"email": user.Email,
-		"token": token,
+		"id":          user.ID,
+		"email":       user.Email,
+		"access_role": user.AccessRole,
+		"token":       token,
 	})
 }
 
@@ -178,7 +188,7 @@ func (h *Handler) Register(c echo.Context) error {
 // -------------------------------------------------------------------------
 
 func (h *Handler) GetProjects(c echo.Context) error {
-	tenantID, _, err := h.getAuth(c)
+	tenantID, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -194,7 +204,7 @@ func (h *Handler) GetProjects(c echo.Context) error {
 }
 
 func (h *Handler) CreateProject(c echo.Context) error {
-	tenantID, userID, err := h.getAuth(c)
+	tenantID, userID, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -248,7 +258,7 @@ Use the full range.', 1, $2)
 }
 
 func (h *Handler) GetProject(c echo.Context) error {
-	tenantID, _, err := h.getAuth(c)
+	tenantID, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -269,7 +279,7 @@ func (h *Handler) GetProject(c echo.Context) error {
 }
 
 func (h *Handler) UpdateProject(c echo.Context) error {
-	tenantID, userID, err := h.getAuth(c)
+	tenantID, userID, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -307,7 +317,7 @@ func (h *Handler) UpdateProject(c echo.Context) error {
 // -------------------------------------------------------------------------
 
 func (h *Handler) GetSystemPrompts(c echo.Context) error {
-	_, _, err := h.getAuth(c)
+	_, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -328,7 +338,7 @@ func (h *Handler) GetSystemPrompts(c echo.Context) error {
 }
 
 func (h *Handler) CreateSystemPrompt(c echo.Context) error {
-	_, userID, err := h.getAuth(c)
+	_, userID, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -366,7 +376,7 @@ func (h *Handler) CreateSystemPrompt(c echo.Context) error {
 }
 
 func (h *Handler) UpdateSystemPrompt(c echo.Context) error {
-	_, _, err := h.getAuth(c)
+	_, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -409,7 +419,7 @@ func (h *Handler) UpdateSystemPrompt(c echo.Context) error {
 // -------------------------------------------------------------------------
 
 func (h *Handler) GetEvaluationPrompts(c echo.Context) error {
-	_, _, err := h.getAuth(c)
+	_, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -430,7 +440,7 @@ func (h *Handler) GetEvaluationPrompts(c echo.Context) error {
 }
 
 func (h *Handler) CreateEvaluationPrompt(c echo.Context) error {
-	_, userID, err := h.getAuth(c)
+	_, userID, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -468,7 +478,7 @@ func (h *Handler) CreateEvaluationPrompt(c echo.Context) error {
 }
 
 func (h *Handler) UpdateEvaluationPrompt(c echo.Context) error {
-	_, _, err := h.getAuth(c)
+	_, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -511,7 +521,7 @@ func (h *Handler) UpdateEvaluationPrompt(c echo.Context) error {
 // -------------------------------------------------------------------------
 
 func (h *Handler) GetTestCases(c echo.Context) error {
-	_, _, err := h.getAuth(c)
+	_, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -532,7 +542,7 @@ func (h *Handler) GetTestCases(c echo.Context) error {
 }
 
 func (h *Handler) CreateTestCase(c echo.Context) error {
-	_, userID, err := h.getAuth(c)
+	_, userID, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -564,7 +574,7 @@ func (h *Handler) CreateTestCase(c echo.Context) error {
 }
 
 func (h *Handler) UpdateTestCase(c echo.Context) error {
-	_, userID, err := h.getAuth(c)
+	_, userID, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -604,7 +614,7 @@ func (h *Handler) UpdateTestCase(c echo.Context) error {
 }
 
 func (h *Handler) DeleteTestCase(c echo.Context) error {
-	_, _, err := h.getAuth(c)
+	_, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -630,7 +640,7 @@ func (h *Handler) DeleteTestCase(c echo.Context) error {
 // -------------------------------------------------------------------------
 
 func (h *Handler) GetProviders(c echo.Context) error {
-	tenantID, _, err := h.getAuth(c)
+	tenantID, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -647,7 +657,7 @@ func (h *Handler) GetProviders(c echo.Context) error {
 }
 
 func (h *Handler) CreateProvider(c echo.Context) error {
-	tenantID, userID, err := h.getAuth(c)
+	tenantID, userID, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -675,7 +685,7 @@ func (h *Handler) CreateProvider(c echo.Context) error {
 }
 
 func (h *Handler) UpdateProvider(c echo.Context) error {
-	tenantID, userID, err := h.getAuth(c)
+	tenantID, userID, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -711,7 +721,7 @@ func (h *Handler) UpdateProvider(c echo.Context) error {
 }
 
 func (h *Handler) DeleteProvider(c echo.Context) error {
-	tenantID, _, err := h.getAuth(c)
+	tenantID, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -744,7 +754,7 @@ type RunDetailsResponse struct {
 }
 
 func (h *Handler) GetEvaluations(c echo.Context) error {
-	_, _, err := h.getAuth(c)
+	_, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -765,7 +775,7 @@ func (h *Handler) GetEvaluations(c echo.Context) error {
 }
 
 func (h *Handler) CreateEvaluation(c echo.Context) error {
-	_, userID, err := h.getAuth(c)
+	_, userID, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -808,7 +818,7 @@ func (h *Handler) CreateEvaluation(c echo.Context) error {
 }
 
 func (h *Handler) GetEvaluationDetails(c echo.Context) error {
-	_, _, err := h.getAuth(c)
+	_, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}
@@ -858,7 +868,7 @@ func (h *Handler) GetEvaluationDetails(c echo.Context) error {
 }
 
 func (h *Handler) DeleteEvaluation(c echo.Context) error {
-	_, _, err := h.getAuth(c)
+	_, _, _, err := h.getAuth(c)
 	if err != nil {
 		return err
 	}

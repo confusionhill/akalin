@@ -10,10 +10,11 @@ import (
 )
 
 type Tenant struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	Name      string    `db:"name" json:"name"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+	ID           uuid.UUID  `db:"id" json:"id"`
+	Name         string     `db:"name" json:"name"`
+	MasterUserID *uuid.UUID `db:"master_user_id" json:"master_user_id"`
+	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time  `db:"updated_at" json:"updated_at"`
 }
 
 type User struct {
@@ -21,6 +22,7 @@ type User struct {
 	TenantID     uuid.UUID `db:"tenant_id" json:"tenant_id"`
 	Email        string    `db:"email" json:"email"`
 	PasswordHash string    `db:"password_hash" json:"-"`
+	AccessRole   int       `db:"access_role" json:"access_role"`
 	CreatedAt    time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
 }
