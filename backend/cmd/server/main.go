@@ -13,6 +13,7 @@ import (
 
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/db"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/handlers"
+	authMW "github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/middleware"
 	valBridge "github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/validator"
 )
 
@@ -84,6 +85,10 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-Tenant-ID", "X-User-ID"},
 		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.OPTIONS},
 	}))
+
+	// Auth middleware - protects all routes except login/register
+	authMiddleware := authMW.NewAuthMiddleware()
+	e.Use(authMiddleware.RequireAuth)
 
 	// Register Routes
 	h := handlers.NewHandler(dbConn)

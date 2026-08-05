@@ -1,5 +1,6 @@
 import type { HeadersMap } from "./types"
 import { logger } from "@/lib/logger"
+import { toast } from "sonner"
 
 const STORAGE_KEYS = {
   tenantId: "llm_eval.tenant_id",
@@ -60,7 +61,11 @@ function authHeaders(): Record<string, string> {
     "Content-Type": "application/json",
     Accept: "application/json",
   }
+  const token = localStorage.getItem("llm_eval.token")
   const auth = getStoredAuth()
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
+  }
   if (auth) {
     headers["X-Tenant-ID"] = auth.tenantId
     headers["X-User-ID"] = auth.userId
@@ -109,7 +114,9 @@ async function request<T>(
           `Request failed with status ${res.status}`
     logger.error(`${method} ${path} -> ${res.status}`, { message, data })
     if (res.status === 401) {
+      localStorage.removeItem("llm_eval.token")
       clearStoredAuth()
+      toast.error("Session expired. Please login again.")
     }
     throw new ApiError(message, res.status, data)
   }

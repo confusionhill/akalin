@@ -169,7 +169,7 @@ for i, tc := range testCases {
 				sysPrompt.Content, tc.InputPrompt)
 		}
 
-		log.Printf("%s building context prompt with resume=%s", casePrefix, len(memory.Resume) > 0)
+		log.Printf("%s building context prompt with resume=%s", casePrefix, len(memory.Resume) > 0 && memory.Resume != "")
 
 		generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, contextPrompt, "", 0.0)
 	} else {

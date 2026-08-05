@@ -5,6 +5,7 @@ import { AppLayout } from "@/components/layout/AppLayout"
 import { RequireAuth } from "@/components/RequireAuth"
 import { AuthProvider } from "@/context/AuthContext"
 import { LoginPage } from "@/pages/Login"
+import { RegisterPage } from "@/pages/Register"
 import { ProjectsPage } from "@/pages/Projects"
 import { ProvidersPage } from "@/pages/Providers"
 import { ProjectDetailPage } from "@/pages/project/ProjectDetail"
@@ -16,6 +17,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route
             element={
               <RequireAuth>

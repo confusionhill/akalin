@@ -3,12 +3,14 @@ package handlers
 import (
 	"database/sql"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/auth"
 
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/evaluator"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
@@ -22,20 +24,32 @@ func NewHandler(db *sqlx.DB) *Handler {
 	return &Handler{DB: db}
 }
 
-// getAuth extracts user context headers and parses them to UUID
+// getAuth extracts user context from JWT token
 func (h *Handler) getAuth(c echo.Context) (uuid.UUID, uuid.UUID, error) {
-	tenantHeader := c.Request().Header.Get("X-Tenant-ID")
-	userHeader := c.Request().Header.Get("X-User-ID")
+	// Get JWT token from Authorization header
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader == "" {
+		return uuid.Nil, uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Missing Authorization header")
+	}
 
-	tenantID, err := uuid.Parse(tenantHeader)
-	if err != nil {
-		return uuid.Nil, uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Invalid or missing X-Tenant-ID header")
+	// Extract token (format: "Bearer <token>")
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		return uuid.Nil, uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Invalid Authorization header format")
 	}
-	userID, err := uuid.Parse(userHeader)
+
+	// Validate JWT token
+	jwtManager := auth.NewJWTManager("your-secret-key-here-change-in-production", 60)
+	claims, err := jwtManager.ValidateToken(tokenString)
 	if err != nil {
-		return uuid.Nil, uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Invalid or missing X-User-ID header")
+		return uuid.Nil, uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
 	}
-	return tenantID, userID, nil
+
+	// Store tenant_id and user_id in context for middleware access
+	c.Set("tenant_id", claims.TenantID)
+	c.Set("user_id", claims.UserID)
+
+	return claims.TenantID, claims.UserID, nil
 }
 
 // -------------------------------------------------------------------------
@@ -83,10 +97,17 @@ func (h *Handler) Login(c echo.Context) error {
 		}
 	}
 
+	// Generate JWT token
+	jwtManager := auth.NewJWTManager("your-secret-key-here-change-in-production", 60)
+	token, err := jwtManager.GenerateToken(user.TenantID, user.ID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate token")
+	}
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"id":        user.ID,
-		"tenant_id": user.TenantID,
 		"email":     user.Email,
+		"token":     token,
 	})
 }
 
@@ -136,10 +157,17 @@ func (h *Handler) Register(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// Generate JWT token
+	jwtManager := auth.NewJWTManager("your-secret-key-here-change-in-production", 60)
+	token, err := jwtManager.GenerateToken(user.TenantID, user.ID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate token")
+	}
+
 	return c.JSON(http.StatusCreated, map[string]interface{}{
 		"id":        user.ID,
-		"tenant_id": user.TenantID,
 		"email":     user.Email,
+		"token":     token,
 	})
 }
 

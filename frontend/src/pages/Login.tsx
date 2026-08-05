@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react"
+import { useState, type FormEvent, useCallback } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { FlaskConical, Loader2 } from "lucide-react"
+import { FlaskConical, Loader2, Copy, Check, LogOut } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAuth } from "@/context/auth-context"
@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export function LoginPage() {
-  const { login, register } = useAuth()
+  const { login, register, logout, isAuthenticated, auth } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from =
@@ -27,6 +27,23 @@ export function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [copiedToken, setCopiedToken] = useState(false)
+
+  const handleCopyToken = useCallback(() => {
+    const token = localStorage.getItem("llm_eval.token")
+    if (token) {
+      navigator.clipboard.writeText(token)
+      setCopiedToken(true)
+      toast.success("Token copied to clipboard")
+      setTimeout(() => setCopiedToken(false), 2000)
+    }
+  }, [])
+
+  const handleLogout = useCallback(() => {
+    logout()
+    toast.success("Logged out successfully")
+    navigate("/login")
+  }, [logout, navigate])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -92,6 +109,40 @@ export function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {isAuthenticated && (
+              <div className="mb-4 p-3 bg-muted rounded-md">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-xs font-medium">Token</Label>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCopyToken}
+                      className="h-6 px-2"
+                    >
+                      {copiedToken ? (
+                        <Check className="size-3 text-green-600" />
+                      ) : (
+                        <Copy className="size-3" />
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleLogout}
+                      className="h-6 px-2 text-red-600 hover:text-red-700"
+                    >
+                      <LogOut className="size-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="text-xs break-all font-mono bg-background p-2 rounded border">
+                  {auth?.email || "Logged in"}
+                </div>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               {mode === "register" && (
                 <div className="flex flex-col gap-2">

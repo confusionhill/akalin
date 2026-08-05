@@ -1,10 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react"
 
 import { authApi } from "@/api"
-import { clearStoredAuth, getStoredAuth, setStoredAuth } from "@/api/client"
+import { getStoredAuth, setStoredAuth, clearStoredAuth } from "@/api/client"
+import { useAuthToken } from "@/lib/auth"
 import { AuthContext, type AuthState } from "@/context/auth-context"
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { clearToken } = useAuthToken()
   const [auth, setAuth] = useState<AuthState | null>(() => getStoredAuth())
 
   useEffect(() => {
@@ -15,9 +17,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const res = await authApi.login(email, password)
+    localStorage.setItem("llm_eval.token", res.token)
     setStoredAuth({
-      tenantId: res.tenant_id,
       userId: res.id,
+      tenantId: res.tenant_id,
       email: res.email,
     })
   }
@@ -27,11 +30,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
   ) => {
-    await authApi.register(tenantName, email, password)
-    await login(email, password)
+    const res = await authApi.register(tenantName, email, password)
+    localStorage.setItem("llm_eval.token", res.token)
+    setStoredAuth({
+      userId: res.id,
+      tenantId: res.tenant_id,
+      email: res.email,
+    })
   }
 
-  const logout = () => clearStoredAuth()
+  const logout = () => {
+    localStorage.removeItem("llm_eval.token")
+    clearToken()
+    clearStoredAuth()
+  }
 
   return (
     <AuthContext.Provider

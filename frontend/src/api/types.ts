@@ -2,6 +2,7 @@ export interface AuthResponse {
   id: string
   tenant_id: string
   email: string
+  token: string
 }
 
 export interface Tenant {

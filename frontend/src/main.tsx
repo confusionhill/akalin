@@ -8,3 +8,7 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+window.addEventListener('auth:change', () => {
+  console.log('Auth state changed')
+})
