@@ -1,0 +1,9 @@
+---
+import { getCollection } from 'astro:content';
+
+// Simple redirect to the get-started page
+const docs = await getCollection('docs');
+const firstDoc = docs[0];
+
+return Astro.redirect(`/docs/${firstDoc.id}`);
+---

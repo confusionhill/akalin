@@ -1,0 +1,36 @@
+---
+import { type CollectionEntry, getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import Header from '../../components/Header.astro';
+
+export async function getStaticPaths() {
+	const posts = await getCollection('blog');
+	return posts.map((post) => ({
+		params: { slug: post.id },
+		props: post,
+	}));
+}
+type Props = CollectionEntry<'blog'>;
+
+const post = Astro.props;
+const { Content } = await render(post);
+---
+
+<Layout title={`${post.data.title} | Akalin`} description={post.data.description}>
+	<Header />
+	<main class="container mx-auto px-4 md:px-8 py-16 max-w-3xl min-h-[calc(100vh-64px)]">
+		<article class="prose prose-lg dark:prose-invert prose-headings:font-bold prose-a:text-primary">
+			<header class="mb-10 not-prose border-b pb-8">
+				<h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">{post.data.title}</h1>
+				<p class="text-muted-foreground">
+					{post.data.pubDate.toLocaleDateString('en-us', {
+						year: 'numeric',
+						month: 'long',
+						day: 'numeric',
+					})}
+				</p>
+			</header>
+			<Content />
+		</article>
+	</main>
+</Layout>

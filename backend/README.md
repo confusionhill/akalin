@@ -18,12 +18,8 @@ The backend of the LLM System Prompt Evaluation Dashboard is built using Go and 
 Create a `.env` file in this directory (or set environment variables) with the following values:
 ```env
 PORT=8080
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_NAME=llm_eval
-SSL_MODE=disable
+DATABASE_URL="postgres://postgres:postgres@localhost:5433/llm_eval?sslmode=disable"
+JWT_SIGNING_KEY="dev-secret-key-change-this-in-production"
 ```
 
 ### 2. Run with Docker Compose (Recommended)

@@ -1,0 +1,56 @@
+---
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { History, Target, Key, ShieldCheck } from 'lucide-react';
+
+const features = [
+  {
+    title: "Prompt Versioning",
+    description: "Track historical changes to system prompts so you can revert or compare previous revisions with ease.",
+    icon: History,
+  },
+  {
+    title: "Custom Evaluation Rubrics",
+    description: "Inject custom grading criteria (e.g. tone, formatting, accuracy) tailored to your specific application requirements.",
+    icon: Target,
+  },
+  {
+    title: "Bring Your Own Key (BYOK)",
+    description: "Connect any OpenAI-compatible endpoint (like local Ollama or custom models) by configuring URLs and custom HTTP headers.",
+    icon: Key,
+  },
+  {
+    title: "Granular Auditing",
+    description: "Track exactly who created, modified, or executed each project, prompt, configuration, and evaluation run.",
+    icon: ShieldCheck,
+  }
+];
+---
+
+<section id="features" class="py-24 bg-background relative">
+  <div class="container mx-auto px-4 md:px-8">
+    <div class="text-center mb-16 max-w-3xl mx-auto">
+      <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4">Enterprise-Grade Evaluation</h2>
+      <p class="text-lg text-muted-foreground">
+        Everything you need to systematically test and deploy LLM prompts to production with confidence.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
+      {features.map((feature) => (
+        <Card className="bg-card/50 backdrop-blur border-primary/10 hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+          <CardHeader>
+            <div class="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4">
+              <feature.icon className="h-6 w-6" />
+            </div>
+            <CardTitle className="text-xl">{feature.title}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CardDescription className="text-base">
+              {feature.description}
+            </CardDescription>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  </div>
+</section>

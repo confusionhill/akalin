@@ -1,0 +1,49 @@
+---
+import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
+---
+
+<section
+  class="relative pt-24 pb-16 md:pt-32 md:pb-24 lg:pt-40 lg:pb-32 overflow-hidden"
+>
+  <div class="container mx-auto px-4 md:px-8 text-center max-w-5xl">
+    <h1
+      class="text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-foreground leading-[1.1] mb-6 animate-in slide-in-from-bottom-6 fade-in duration-700"
+    >
+      Evaluate LLM Prompts <br class="hidden md:inline" />
+      <span
+        class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent"
+        >With Precision</span
+      >
+    </h1>
+
+    <p
+      class="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto animate-in slide-in-from-bottom-8 fade-in duration-700 delay-150"
+    >
+      Design, test, track, and grade LLM system prompts against custom rubrics.
+      Build confidence in your AI applications with robust, data-driven
+      evaluations.
+    </p>
+
+    <div
+      class="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in slide-in-from-bottom-10 fade-in duration-700 delay-300"
+    >
+      <!-- <Button size="lg" className="h-14 px-8 text-lg rounded-full shadow-lg hover:shadow-primary/25 hover:-translate-y-1 transition-all duration-300 w-full sm:w-auto">
+        Start Evaluating Free
+        <ArrowRight className="ml-2 h-5 w-5" />
+      </Button> -->
+      <a
+        href="/docs"
+        class="inline-flex items-center justify-center h-14 px-8 text-lg rounded-full w-full sm:w-auto border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+      >
+        Read Documentation
+      </a>
+    </div>
+  </div>
+
+  {/* Decorative elements */}
+  <div
+    class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[100px] -z-10"
+  >
+  </div>
+</section>

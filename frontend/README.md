@@ -13,7 +13,14 @@
    ```bash
    npm install   # or pnpm install / yarn install
    ```
-2. Start the development server with hot‑module replacement:
+2. (Optional) Configure environment variables:
+   Create a `.env` file in the `frontend/` directory to point to the backend API:
+   ```env
+   VITE_API_BASE_URL="http://localhost:8080/api"
+   ```
+   *(If not set, it defaults to `/api` which Vite proxies to `http://localhost:8080`)*
+
+3. Start the development server with hot‑module replacement:
    ```bash
    npm run dev   # Vite dev server, typically at http://localhost:5173
    ```
