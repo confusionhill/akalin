@@ -34,19 +34,44 @@ JWT_SIGNING_KEY="dev-secret-key-change-this-in-production"
 
 ## 2. Start the Backend
 
-You can start the entire backend stack along with PostgreSQL using Docker Compose. The database schema will be automatically injected on startup via the `init.sql` script.
+There are 3 options available for building and running the backend server:
 
-From the repository root or the `backend/` folder, run:
+### Option 1: Use Docker Compose (Recommended)
+Spins up both the PostgreSQL container (with automatic schema seeding via `init.sql`) and the Go backend API container:
 
 ```bash
 docker compose up -d --build
 ```
 
-This spins up:
-- **PostgreSQL container**: Configured with the alpine distribution, automatically executing schema setup.
-- **Go API server**: Running on local port `8080`.
+- **PostgreSQL**: Running on local port `5433` (or `5432`).
+- **Go Backend API**: Running on local port `8080`.
 
-*(Alternatively, you can run the Go binary locally with `go run cmd/server/main.go` after starting PostgreSQL manually).*
+---
+
+### Option 2: Build via Dockerfile
+If you already have a PostgreSQL instance running, you can build and run the standalone Docker image for the Go API server:
+
+```bash
+cd backend
+docker build -t akalin-backend .
+docker run -p 8080:8080 --env-file .env akalin-backend
+```
+
+---
+
+### Option 3: Build Go by yourself
+For direct local Go development:
+
+1. Ensure PostgreSQL is running and schema from `backend/init.sql` has been executed.
+2. Run the Go server directly:
+
+```bash
+cd backend
+go run ./cmd/server
+```
+
+*(Or compile a production binary: `go build -o server ./cmd/server` and execute `./server`)*
+
 
 ---
 
