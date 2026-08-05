@@ -45,6 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  const updateAuth = (updates: Partial<AuthState>) => {
+    if (!auth) return
+    const newAuth = { ...auth, ...updates }
+    setAuth(newAuth)
+    setStoredAuth(newAuth)
+  }
+
   const logout = () => {
     localStorage.removeItem("llm_eval.token")
     clearToken()
@@ -58,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: auth !== null,
         login,
         register,
+        updateAuth,
         logout,
       }}
     >

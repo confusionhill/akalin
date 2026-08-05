@@ -67,6 +67,10 @@ func main() {
 	api.POST("/auth/login", h.Login)
 	api.POST("/auth/register", h.Register)
 
+	// User Settings
+	api.PUT("/users/me/profile", h.UpdateProfile)
+	api.PUT("/users/me/password", h.UpdatePassword)
+
 	// Projects
 	api.GET("/projects", h.GetProjects)
 	api.POST("/projects", h.CreateProject)

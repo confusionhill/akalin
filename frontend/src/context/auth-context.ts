@@ -19,6 +19,7 @@ export interface AuthContextValue {
     fullName: string,
     password: string,
   ) => Promise<void>
+  updateAuth: (updates: Partial<AuthState>) => void
   logout: () => void
 }
 

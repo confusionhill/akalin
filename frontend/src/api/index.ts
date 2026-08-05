@@ -16,6 +16,8 @@ import type {
   SystemPrompt,
   TestCase,
   Tool,
+  UpdateProfileInput,
+  UpdatePasswordInput,
 } from "./types"
 
 
@@ -24,6 +26,13 @@ export const authApi = {
     http.post<AuthResponse>("/auth/login", { email, password }),
   register: (tenant_name: string, email: string, handle: string, full_name: string, password: string) =>
     http.post<AuthResponse>("/auth/register", { tenant_name, email, handle, full_name, password }),
+}
+
+export const usersApi = {
+  updateProfile: (body: UpdateProfileInput) =>
+    http.put<{ email: string; handle: string; full_name: string }>("/users/me/profile", body),
+  updatePassword: (body: UpdatePasswordInput) =>
+    http.put<void>("/users/me/password", body),
 }
 
 export const projectsApi = {

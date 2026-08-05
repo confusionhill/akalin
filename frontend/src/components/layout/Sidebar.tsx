@@ -90,8 +90,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               {auth?.fullName ?? auth?.email ?? "Unknown"}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>
-              <Settings className="size-4" />
+            <DropdownMenuItem onClick={() => {
+              navigate("/settings")
+              if (onNavigate) onNavigate()
+            }}>
+              <Settings className="size-4 mr-2" />
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />

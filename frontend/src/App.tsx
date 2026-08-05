@@ -11,6 +11,7 @@ import { ProvidersPage } from "@/pages/Providers"
 import { ToolsPage } from "@/pages/Tools"
 import { ProjectDetailPage } from "@/pages/project/ProjectDetail"
 import { EvaluationDetailPage } from "@/pages/project/EvaluationDetail"
+import { SettingsPage } from "@/pages/Settings"
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
               path="/projects/:id/evaluations/:runId"
               element={<EvaluationDetailPage />}
             />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
           <Route path="/" element={<Navigate to="/projects" replace />} />

@@ -172,3 +172,13 @@ export interface CreateEvaluationInput {
   enable_memory?: boolean
 }
 
+export interface UpdateProfileInput {
+  email: string
+  handle: string
+  full_name: string
+}
+
+export interface UpdatePasswordInput {
+  current_password: string
+  new_password: string
+}
