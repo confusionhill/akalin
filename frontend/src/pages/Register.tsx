@@ -21,6 +21,8 @@ export function RegisterPage() {
 
   const [tenantName, setTenantName] = useState("")
   const [email, setEmail] = useState("")
+  const [handle, setHandle] = useState("")
+  const [fullName, setFullName] = useState("")
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [copiedToken, setCopiedToken] = useState(false)
@@ -39,7 +41,7 @@ export function RegisterPage() {
     e.preventDefault()
     setSubmitting(true)
     try {
-      await register(tenantName, email, password)
+      await register(tenantName, email, handle, fullName, password)
       toast.success("Account created successfully!")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong"
@@ -137,6 +139,28 @@ export function RegisterPage() {
                   placeholder="you@example.com"
                   required
                   autoComplete="email"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="handle">Handle</Label>
+                <Input
+                  id="handle"
+                  type="text"
+                  value={handle}
+                  onChange={(e) => setHandle(e.target.value)}
+                  placeholder="johndoe"
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="John Doe"
+                  required
                 />
               </div>
               <div className="flex flex-col gap-2">

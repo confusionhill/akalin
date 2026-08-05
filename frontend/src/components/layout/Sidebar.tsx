@@ -73,21 +73,21 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <DropdownMenuTrigger asChild>
             <button className="hover:bg-sidebar-accent/60 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors outline-none">
               <div className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-xs font-semibold text-white">
-                {auth?.email.slice(0, 1).toUpperCase() ?? "?"}
+                {auth?.fullName?.slice(0, 1).toUpperCase() ?? auth?.email?.slice(0, 1).toUpperCase() ?? "?"}
               </div>
               <div className="flex min-w-0 flex-1 flex-col leading-tight">
                 <span className="truncate text-sm font-medium">
-                  {auth?.email ?? "Unknown"}
+                  {auth?.fullName ?? auth?.email ?? "Unknown"}
                 </span>
                 <span className="text-muted-foreground text-[11px]">
-                  Signed in
+                  {auth?.handle ? `@${auth.handle}` : "Signed in"}
                 </span>
               </div>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-56">
             <DropdownMenuLabel className="truncate">
-              {auth?.email ?? "Unknown"}
+              {auth?.fullName ?? auth?.email ?? "Unknown"}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled>

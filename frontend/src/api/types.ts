@@ -2,6 +2,8 @@ export interface AuthResponse {
   id: string
   tenant_id: string
   email: string
+  handle: string
+  full_name: string
   token: string
 }
 

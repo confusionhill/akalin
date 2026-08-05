@@ -22,8 +22,8 @@ import type {
 export const authApi = {
   login: (email: string, password: string) =>
     http.post<AuthResponse>("/auth/login", { email, password }),
-  register: (tenant_name: string, email: string, password: string) =>
-    http.post<AuthResponse>("/auth/register", { tenant_name, email, password }),
+  register: (tenant_name: string, email: string, handle: string, full_name: string, password: string) =>
+    http.post<AuthResponse>("/auth/register", { tenant_name, email, handle, full_name, password }),
 }
 
 export const projectsApi = {

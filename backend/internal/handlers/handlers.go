@@ -66,6 +66,8 @@ type LoginReq struct {
 type RegisterReq struct {
 	TenantName string `json:"tenant_name" validate:"required"`
 	Email      string `json:"email" validate:"required,email"`
+	Handle     string `json:"handle" validate:"required"`
+	FullName   string `json:"full_name" validate:"required"`
 	Password   string `json:"password" validate:"required"`
 }
 
@@ -109,6 +111,8 @@ func (h *Handler) Login(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"id":          user.ID,
 		"email":       user.Email,
+		"handle":      user.Handle,
+		"full_name":   user.FullName,
 		"access_role": user.AccessRole,
 		"token":       token,
 	})
@@ -132,6 +136,15 @@ func (h *Handler) Register(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusConflict, "Email already registered")
 	}
 
+	var handleCount int
+	err = h.DB.Get(&handleCount, "SELECT COUNT(*) FROM users WHERE handle = $1", req.Handle)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if handleCount > 0 {
+		return echo.NewHTTPError(http.StatusConflict, "Handle already taken")
+	}
+
 	bytes, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to hash password")
@@ -152,7 +165,7 @@ func (h *Handler) Register(c echo.Context) error {
 
 	// First tenant user gets tenant master / admin role (60)
 	var user models.User
-	err = tx.Get(&user, "INSERT INTO users (tenant_id, email, password_hash, access_role) VALUES ($1, $2, $3, 60) RETURNING *", tenantID, req.Email, hash)
+	err = tx.Get(&user, "INSERT INTO users (tenant_id, email, handle, full_name, password_hash, access_role) VALUES ($1, $2, $3, $4, $5, 60) RETURNING *", tenantID, req.Email, req.Handle, req.FullName, hash)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -177,6 +190,8 @@ func (h *Handler) Register(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]interface{}{
 		"id":          user.ID,
 		"email":       user.Email,
+		"handle":      user.Handle,
+		"full_name":   user.FullName,
 		"access_role": user.AccessRole,
 		"token":       token,
 	})

@@ -23,20 +23,20 @@ export function UserMenu() {
         <Button variant="ghost" className="gap-2">
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
             <span className="text-sm font-semibold text-primary">
-              {auth?.email?.[0]?.toUpperCase() || "U"}
+              {auth?.fullName?.slice(0, 1).toUpperCase() ?? auth?.email?.[0]?.toUpperCase() ?? "U"}
             </span>
           </div>
-          <span className="hidden sm:inline">{auth?.email || "User"}</span>
+          <span className="hidden sm:inline">{auth?.fullName ?? auth?.email ?? "User"}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="space-y-1">
             <p className="text-sm font-medium leading-none">
-              {auth?.email || "User"}
+              {auth?.fullName ?? auth?.email ?? "User"}
             </p>
             <p className="text-xs leading-none text-muted-foreground">
-              {auth?.tenantId || "Tenant"}
+              {auth?.handle ? `@${auth.handle}` : "Tenant"}
             </p>
           </div>
         </DropdownMenuLabel>

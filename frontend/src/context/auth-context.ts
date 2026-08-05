@@ -4,6 +4,8 @@ export interface AuthState {
   userId: string
   tenantId: string
   email: string
+  handle: string
+  fullName: string
 }
 
 export interface AuthContextValue {
@@ -13,6 +15,8 @@ export interface AuthContextValue {
   register: (
     tenantName: string,
     email: string,
+    handle: string,
+    fullName: string,
     password: string,
   ) => Promise<void>
   logout: () => void

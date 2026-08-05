@@ -6,6 +6,8 @@ const STORAGE_KEYS = {
   tenantId: "llm_eval.tenant_id",
   userId: "llm_eval.user_id",
   email: "llm_eval.email",
+  handle: "llm_eval.handle",
+  fullName: "llm_eval.full_name",
 } as const
 
 const BASE_URL =
@@ -27,6 +29,8 @@ export function getStoredAuth(): {
   tenantId: string
   userId: string
   email: string
+  handle: string
+  fullName: string
 } | null {
   const tenantId = localStorage.getItem(STORAGE_KEYS.tenantId)
   const userId = localStorage.getItem(STORAGE_KEYS.userId)
@@ -35,6 +39,8 @@ export function getStoredAuth(): {
     tenantId,
     userId,
     email: localStorage.getItem(STORAGE_KEYS.email) ?? "",
+    handle: localStorage.getItem(STORAGE_KEYS.handle) ?? "",
+    fullName: localStorage.getItem(STORAGE_KEYS.fullName) ?? "",
   }
 }
 
@@ -42,10 +48,14 @@ export function setStoredAuth(auth: {
   tenantId: string
   userId: string
   email: string
+  handle: string
+  fullName: string
 }): void {
   localStorage.setItem(STORAGE_KEYS.tenantId, auth.tenantId)
   localStorage.setItem(STORAGE_KEYS.userId, auth.userId)
   localStorage.setItem(STORAGE_KEYS.email, auth.email)
+  localStorage.setItem(STORAGE_KEYS.handle, auth.handle)
+  localStorage.setItem(STORAGE_KEYS.fullName, auth.fullName)
   window.dispatchEvent(new Event("auth:change"))
 }
 
@@ -53,6 +63,8 @@ export function clearStoredAuth(): void {
   localStorage.removeItem(STORAGE_KEYS.tenantId)
   localStorage.removeItem(STORAGE_KEYS.userId)
   localStorage.removeItem(STORAGE_KEYS.email)
+  localStorage.removeItem(STORAGE_KEYS.handle)
+  localStorage.removeItem(STORAGE_KEYS.fullName)
   window.dispatchEvent(new Event("auth:change"))
 }
 

@@ -21,6 +21,8 @@ type User struct {
 	ID           uuid.UUID `db:"id" json:"id"`
 	TenantID     uuid.UUID `db:"tenant_id" json:"tenant_id"`
 	Email        string    `db:"email" json:"email"`
+	Handle       string    `db:"handle" json:"handle"`
+	FullName     string    `db:"full_name" json:"full_name"`
 	PasswordHash string    `db:"password_hash" json:"-"`
 	AccessRole   int       `db:"access_role" json:"access_role"`
 	CreatedAt    time.Time `db:"created_at" json:"created_at"`

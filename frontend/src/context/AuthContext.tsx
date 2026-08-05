@@ -22,20 +22,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userId: res.id,
       tenantId: res.tenant_id,
       email: res.email,
+      handle: res.handle,
+      fullName: res.full_name,
     })
   }
 
   const register = async (
     tenantName: string,
     email: string,
+    handle: string,
+    fullName: string,
     password: string,
   ) => {
-    const res = await authApi.register(tenantName, email, password)
+    const res = await authApi.register(tenantName, email, handle, fullName, password)
     localStorage.setItem("llm_eval.token", res.token)
     setStoredAuth({
       userId: res.id,
       tenantId: res.tenant_id,
       email: res.email,
+      handle: res.handle,
+      fullName: res.full_name,
     })
   }
 

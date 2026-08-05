@@ -15,6 +15,8 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     email VARCHAR(255) UNIQUE NOT NULL,
+    handle VARCHAR(255) UNIQUE NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     access_role INTEGER NOT NULL DEFAULT 0, -- 0 = user, 60 = admin / tenant master
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -159,8 +161,8 @@ VALUES ('00000000-0000-0000-0000-000000000001', 'Mock Tenant');
 
 -- Seed default user (admin / tenant master with access_role = 60)
 -- Hashed password: $2a$10$uRqdKxM/8fX8699hKj7qUeM7j052uF7c.jE.m574J2yqX0eE8d89O
-INSERT INTO users (id, tenant_id, email, password_hash, access_role) 
-VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'admin@example.com', '$2a$10$uRqdKxM/8fX8699hKj7qUeM7j052uF7c.jE.m574J2yqX0eE8d89O', 60);
+INSERT INTO users (id, tenant_id, email, handle, full_name, password_hash, access_role) 
+VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'admin@example.com', 'confusion_hill', 'Admin User', '$2a$10$uRqdKxM/8fX8699hKj7qUeM7j052uF7c.jE.m574J2yqX0eE8d89O', 60);
 
 -- Link tenant master_user_id
 UPDATE tenants 
