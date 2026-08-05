@@ -55,6 +55,7 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 		memory = &EvaluationMemory{
 			Version:             1,
 			ConversationHistory: []MemoryEntry{},
+			Resume:              "",
 			GeneratedOutputs:    []OutputRecord{},
 			Evaluations:         []EvaluationRecord{},
 			Notes:               make(map[string]interface{}),
@@ -131,17 +132,49 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 	var totalScore float64
 	var completedCount int
 
-	for i, tc := range testCases {
+for i, tc := range testCases {
 		casePrefix := fmt.Sprintf("%s case[%d/%d id=%s]", logPrefix, i+1, len(testCases), tc.ID)
 		
 		var generatedOutput string
 		var err error
 
-		if run.EnableMemory && memory != nil && len(memory.ConversationHistory) > 1 {
-			generatedOutput, err = targetClient.GenerateWithMemory(ctx, run.TargetModel, sysPrompt.Content, buildConversationHistory(memory.ConversationHistory), 0.0)
-		} else {
-			generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, 0.0)
+		// Add current test case's input to conversation history
+		if run.EnableMemory && memory != nil {
+			memory.ConversationHistory = append(memory.ConversationHistory, MemoryEntry{
+				Role:    "user",
+				Content: tc.InputPrompt,
+				Time:    time.Now(),
+			})
 		}
+
+		if run.EnableMemory && memory != nil {
+		// Add current test case's input to conversation history
+		memory.ConversationHistory = append(memory.ConversationHistory, MemoryEntry{
+			Role:    "user",
+			Content: tc.InputPrompt,
+			Time:    time.Now(),
+		})
+
+		// Build context prompt with clear separation of sections
+		var contextPrompt string
+		if memory.Resume != "" {
+			contextPrompt = fmt.Sprintf("System Instructions:\n%s\n\nPrevious Context:\n%s\n\nCurrent Question:\n%s\n\nIMPORTANT: Please answer ONLY the current question above. Do NOT include any summary or additional commentary. Your answer should be concise and directly address the question.",
+
+				sysPrompt.Content,
+				memory.Resume,
+				tc.InputPrompt,
+			)
+		} else {
+			contextPrompt = fmt.Sprintf("System Instructions:\n%s\n\nCurrent Question:\n%s",
+				sysPrompt.Content, tc.InputPrompt)
+		}
+
+		log.Printf("%s building context prompt with resume=%s", casePrefix, len(memory.Resume) > 0)
+
+		generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, contextPrompt, "", 0.0)
+	} else {
+		generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, 0.0)
+	}
 
 		if err != nil {
 			log.Printf("%s target generation failed: %v", casePrefix, err)
@@ -158,12 +191,8 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 		}
 		log.Printf("%s target generation ok, len=%d", casePrefix, len(generatedOutput))
 
+		// Save the generation result
 		if run.EnableMemory && memory != nil {
-			memory.ConversationHistory = append(memory.ConversationHistory, MemoryEntry{
-				Role:    "user",
-				Content: tc.InputPrompt,
-				Time:    time.Now(),
-			})
 			memory.ConversationHistory = append(memory.ConversationHistory, MemoryEntry{
 				Role:    "assistant",
 				Content: generatedOutput,
@@ -174,6 +203,14 @@ func RunPipeline(db *sqlx.DB, runID uuid.UUID) {
 				Output:     generatedOutput,
 				Timestamp:  time.Now(),
 			})
+
+			// Generate a new resume from the updated conversation
+			conversationHistory := BuildConversationHistory(memory.ConversationHistory)
+			resumePrompt, resumeErr := GenerateResume(conversationHistory, generatedOutput)
+			if resumeErr == nil && resumePrompt != "" {
+				memory.Resume = resumePrompt
+				log.Printf("%s generated new memory resume", casePrefix)
+			}
 		}
 
 		evaluatorUserPrompt := fmt.Sprintf(
