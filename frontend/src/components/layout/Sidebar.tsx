@@ -30,13 +30,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <aside className="bg-sidebar text-sidebar-foreground flex h-full w-[260px] flex-col border-r">
       <div className="flex h-16 items-center gap-2.5 border-b px-5">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 shadow-md shadow-violet-500/20">
-          <FlaskConical className="size-5 text-white" />
+        <div className="flex size-9 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 shadow-md shadow-violet-500/20">
+          <img src="/icon.webp" alt="Akalin" className="size-full object-cover" />
         </div>
         <div className="flex flex-col leading-tight">
           <span className="text-sm font-semibold tracking-tight">Akalin</span>
           <span className="text-muted-foreground text-[11px]">
-            Prompt Pipeline
+            Promt Evaluation Pipeline
           </span>
         </div>
       </div>

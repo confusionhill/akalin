@@ -1,6 +1,6 @@
 import { useState, type FormEvent, useCallback } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { FlaskConical, Loader2, Copy, Check, LogOut } from "lucide-react"
+import { Loader2, Copy, Check, LogOut } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAuth } from "@/context/auth-context"
@@ -77,8 +77,8 @@ export function LoginPage() {
           aria-hidden
         />
         <div className="relative flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 backdrop-blur">
-            <FlaskConical className="size-5 text-violet-200" />
+          <div className="flex size-10 items-center justify-center overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/20 backdrop-blur">
+            <img src="/icon.webp" alt="Akalin" className="size-full object-cover" />
           </div>
           <span className="text-lg font-semibold text-white">Akalin</span>
         </div>
