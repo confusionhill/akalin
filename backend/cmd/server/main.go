@@ -56,7 +56,6 @@ func main() {
 
 	// Auth middleware - protects all routes except login/register
 	authMiddleware := authMW.NewAuthMiddleware()
-	e.Use(authMiddleware.RequireAuth)
 
 	// Register Routes
 	h := handlers.NewHandler(cfg, dbConn)
@@ -64,57 +63,73 @@ func main() {
 	api := e.Group("/api")
 
 	// Authentication
-	api.POST("/auth/login", h.Login)
-	api.POST("/auth/register", h.Register)
+	authGroup := api.Group("/auth")
+	authGroup.POST("/login", h.Login)
+	authGroup.POST("/register", h.Register)
 
 	// User Settings
-	api.PUT("/users/me/profile", h.UpdateProfile)
-	api.PUT("/users/me/password", h.UpdatePassword)
+	userGroup := api.Group("/users/me", authMiddleware.RequireAuth)
+	userGroup.PUT("/profile", h.UpdateProfile)
+	userGroup.PUT("/password", h.UpdatePassword)
 
 	// Projects
-	api.GET("/projects", h.GetProjects)
-	api.POST("/projects", h.CreateProject)
-	api.GET("/projects/:id", h.GetProject)
-	api.PUT("/projects/:id", h.UpdateProject)
+	projectGroup := api.Group("/projects", authMiddleware.RequireAuth)
+	projectGroup.GET("", h.GetProjects)
+	projectGroup.POST("", h.CreateProject)
+	projectGroup.GET("/:id", h.GetProject)
+	projectGroup.PUT("/:id", h.UpdateProject)
 
 	// System Prompts
-	api.GET("/projects/:id/prompts", h.GetSystemPrompts)
-	api.POST("/projects/:id/prompts", h.CreateSystemPrompt)
-	api.PUT("/projects/:id/prompts/:prompt_id", h.UpdateSystemPrompt)
+	projectGroup.GET("/:id/prompts", h.GetSystemPrompts)
+	projectGroup.POST(":id/prompts", h.CreateSystemPrompt)
+	projectGroup.PUT("/:id/prompts/:prompt_id", h.UpdateSystemPrompt)
 
 	// Evaluation Prompts
-	api.GET("/projects/:id/evaluation-prompts", h.GetEvaluationPrompts)
-	api.POST("/projects/:id/evaluation-prompts", h.CreateEvaluationPrompt)
-	api.PUT("/projects/:id/evaluation-prompts/:prompt_id", h.UpdateEvaluationPrompt)
+	projectGroup.GET("/:id/evaluation-prompts", h.GetEvaluationPrompts)
+	projectGroup.POST(":id/evaluation-prompts", h.CreateEvaluationPrompt)
+	projectGroup.PUT("/:id/evaluation-prompts/:prompt_id", h.UpdateEvaluationPrompt)
 
 	// Test Cases
-	api.GET("/projects/:id/test-cases", h.GetTestCases)
-	api.POST("/projects/:id/test-cases", h.CreateTestCase)
-	api.PUT("/projects/:id/test-cases/:tc_id", h.UpdateTestCase)
-	api.DELETE("/projects/:id/test-cases/:tc_id", h.DeleteTestCase)
-
-	// Providers (BYOK) — tenant-scoped (global)
-	api.GET("/providers", h.GetProviders)
-	api.POST("/providers", h.CreateProvider)
-	api.PUT("/providers/:provider_id", h.UpdateProvider)
-	api.DELETE("/providers/:provider_id", h.DeleteProvider)
-
-	// Global Tools — tenant-scoped
-	api.GET("/tools", h.GetTools)
-	api.POST("/tools", h.CreateTool)
-	api.PUT("/tools/:tool_id", h.UpdateTool)
-	api.DELETE("/tools/:tool_id", h.DeleteTool)
-
-	// Project Tools
-	api.GET("/projects/:id/tools", h.GetProjectTools)
-	api.PUT("/projects/:id/tools", h.UpdateProjectTools)
+	projectGroup.GET("/:id/test-cases", h.GetTestCases)
+	projectGroup.POST(":id/test-cases", h.CreateTestCase)
+	projectGroup.PUT("/:id/test-cases/:tc_id", h.UpdateTestCase)
+	projectGroup.DELETE("/:id/test-cases/:tc_id", h.DeleteTestCase)
 
 	// Evaluations
-	api.GET("/projects/:id/evaluations", h.GetEvaluations)
-	api.POST("/projects/:id/evaluations", h.CreateEvaluation)
-	api.GET("/projects/:id/evaluations/:run_id", h.GetEvaluationDetails)
-	api.POST("/projects/:id/evaluations/:run_id/cancel", h.CancelEvaluation)
-	api.DELETE("/projects/:id/evaluations/:run_id", h.DeleteEvaluation)
+	projectGroup.GET("/:id/evaluations", h.GetEvaluations)
+	projectGroup.POST("/:id/evaluations", h.CreateEvaluation)
+	projectGroup.GET("/:id/evaluations/:run_id", h.GetEvaluationDetails)
+	projectGroup.POST("/:id/evaluations/:run_id/cancel", h.CancelEvaluation)
+	projectGroup.DELETE("/:id/evaluations/:run_id", h.DeleteEvaluation)
+
+	// Rubric Auto-Refinement
+	projectGroup.POST("/:id/evaluations/:run_id/refine-rubric", h.RefineEvaluationPrompt)
+	projectGroup.POST("/:id/calibrate-rubric", h.CalibrateEvaluationPrompt)
+	projectGroup.GET("/:id/rubric-drafts", h.GetRubricDrafts)
+	projectGroup.GET("/:id/rubric-drafts/:draft_id", h.GetRubricDraft)
+	projectGroup.POST("/:id/rubric-drafts/:draft_id/cancel", h.CancelRubricDraft)
+	projectGroup.POST("/:id/rubric-drafts/:draft_id/retry", h.RetryRubricDraft)
+	projectGroup.DELETE("/:id/rubric-drafts/:draft_id", h.DeleteRubricDraft)
+
+	// Providers (BYOK) — tenant-scoped (global)
+	providerGroup := api.Group("/providers", authMiddleware.RequireAuth)
+	providerGroup.GET("", h.GetProviders)
+	providerGroup.POST("", h.CreateProvider)
+	providerGroup.PUT("/:provider_id", h.UpdateProvider)
+	providerGroup.DELETE("/:provider_id", h.DeleteProvider)
+
+	// Global Tools — tenant-scoped
+	toolsGroup := api.Group("/tools", authMiddleware.RequireAuth)
+	toolsGroup.GET("", h.GetTools)
+	toolsGroup.POST("", h.CreateTool)
+	toolsGroup.PUT("/:tool_id", h.UpdateTool)
+	toolsGroup.DELETE("/:tool_id", h.DeleteTool)
+
+	// Project Tools
+	projectGroup.GET("/:id/tools", h.GetProjectTools)
+	projectGroup.PUT("/:id/tools", h.UpdateProjectTools)
+
+	api.GET("/rubric-template.csv", h.DownloadCSVTemplate)
 
 	// Start Background Worker Pool for Evaluations
 	go worker.StartEvaluationWorkers(dbConn, 3)

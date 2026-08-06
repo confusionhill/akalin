@@ -182,7 +182,7 @@ func (c *LLMClient) makeRequestWithTools(ctx context.Context, model string, mess
 		req.Header.Set(k, v)
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: 300 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("[llm-client] request error: %s model=%s err=%v", url, model, err)

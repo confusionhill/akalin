@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, CheckCircle2, Loader2, RotateCw, Trash2, Wrench, XCircle, Activity, User, Bot, Zap, ChevronDown, ChevronRight, Clock } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Loader2, RotateCw, Trash2, Wrench, XCircle, Activity, User, Bot, Zap, ChevronDown, ChevronRight, Clock, Sparkles } from "lucide-react"
 
 import { toast } from "sonner"
 
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/table"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { formatDateTime } from "@/lib/utils"
+import { RefineRubricModal } from "./RefineRubricModal"
 
 const statusVariant: Record<
   RunStatus,
@@ -51,6 +52,7 @@ export function EvaluationDetailPage() {
   const [rerunning, setRerunning] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [refineModalOpen, setRefineModalOpen] = useState(false)
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const stopPolling = useCallback(() => {
@@ -161,6 +163,17 @@ export function EvaluationDetailPage() {
               )}
               Re-run
             </Button>
+            {run.status === "completed" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200"
+                onClick={() => setRefineModalOpen(true)}
+              >
+                <Sparkles className="size-4 text-indigo-500" />
+                Refine Rubric
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -182,6 +195,14 @@ export function EvaluationDetailPage() {
         destructive
         loading={deleting}
         onConfirm={handleDelete}
+      />
+
+      <RefineRubricModal
+        open={refineModalOpen}
+        onOpenChange={setRefineModalOpen}
+        projectId={projectId}
+        runId={runId}
+        basePromptId={run?.evaluation_prompt_id}
       />
 
       {!run && !error && (

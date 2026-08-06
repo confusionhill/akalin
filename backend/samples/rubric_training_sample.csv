@@ -1,0 +1,3 @@
+input,expected_output,actual_output,score,reasoning
+"What is the capital of France?","Paris","The capital of France is Paris.","0.95","Correct answer with natural phrasing"
+"What is the capital of France?","Paris","Paris is the capital city of the French Republic, located in northern France along the Seine River.","0.70","Correct but overly verbose for a simple factual question"

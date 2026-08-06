@@ -382,3 +382,81 @@ func parseEvaluation(response string) (float64, string) {
 }
 
 type EvaluationRun models.EvaluationRun
+
+// RubricTrainingRow represents a single example used to train the meta-LLM for rubric generation
+type RubricTrainingRow struct {
+	Input          string
+	ExpectedOutput string
+	ActualOutput   string
+	Score          string
+	Reasoning      string
+}
+
+// GenerateRefinedRubric calls the meta-LLM to generate an improved evaluation prompt based on training data.
+func GenerateRefinedRubric(
+	ctx context.Context,
+	client *LLMClient,
+	model string,
+	existingRubric string,
+	customInstructions string,
+	rows []RubricTrainingRow,
+) (string, error) {
+
+	var prompt strings.Builder
+	prompt.WriteString("You are an evaluation rubric engineer. Your job is to create a precise, unambiguous grading rubric for evaluating LLM outputs.\n\n")
+
+	if existingRubric != "" {
+		prompt.WriteString("CURRENT RUBRIC (improve upon this):\n")
+		prompt.WriteString(existingRubric)
+		prompt.WriteString("\n\n")
+	}
+
+	if customInstructions != "" {
+		prompt.WriteString("SPECIFIC FOCUS AREAS:\n")
+		prompt.WriteString(customInstructions)
+		prompt.WriteString("\n\n")
+	}
+
+	prompt.WriteString(fmt.Sprintf("TRAINING DATA (%d examples):\n", len(rows)))
+	for _, row := range rows {
+		prompt.WriteString("---\n")
+		prompt.WriteString(fmt.Sprintf("Input: %s\n", row.Input))
+		prompt.WriteString(fmt.Sprintf("Expected Output: %s\n", row.ExpectedOutput))
+		prompt.WriteString(fmt.Sprintf("Actual Output: %s\n", row.ActualOutput))
+		prompt.WriteString(fmt.Sprintf("Score: %s\n", row.Score))
+		prompt.WriteString(fmt.Sprintf("Reasoning: %s\n", row.Reasoning))
+		prompt.WriteString("---\n")
+	}
+
+	prompt.WriteString(`
+Based on this training data, generate an improved evaluation rubric that:
+1. Identifies the key quality dimensions from the scoring patterns
+2. Provides concrete scoring criteria for each dimension
+3. Includes 2-3 few-shot examples (good and bad) drawn from the data
+4. Uses the format: "Score X if [specific condition]"
+5. Addresses the most common failure patterns visible in low-scoring examples
+
+The evaluator using this rubric MUST output EXACTLY in the format:
+SCORE: <0.0-1.0>
+REASONING: <brief reasoning>
+
+Output ONLY the rubric text. No preamble, no markdown fences.`)
+
+	// Call the LLM
+	generatedOutput, _, err := client.Generate(ctx, model, "", prompt.String(), 0.2) // Low temperature for consistency
+	if err != nil {
+		return "", err
+	}
+
+	// Clean up markdown fences if the LLM ignored instructions
+	cleanOutput := strings.TrimSpace(generatedOutput)
+	if strings.HasPrefix(cleanOutput, "```") {
+		lines := strings.Split(cleanOutput, "\n")
+		if len(lines) >= 2 {
+			cleanOutput = strings.Join(lines[1:len(lines)-1], "\n")
+			cleanOutput = strings.TrimSpace(cleanOutput)
+		}
+	}
+
+	return cleanOutput, nil
+}

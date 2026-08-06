@@ -124,3 +124,48 @@ export const evaluationsApi = {
     http.post<void>(`/projects/${projectId}/evaluations/${runId}/cancel`, {}),
 }
 
+export const rubricDraftsApi = {
+  // Mode A: from completed run
+  refineFromRun: (projectId: string, runId: string, basePromptId?: string, customInstructions?: string) =>
+    http.post<{ draft_id: string }>(
+      `/projects/${projectId}/evaluations/${runId}/refine-rubric`,
+      { base_prompt_id: basePromptId, custom_instructions: customInstructions }
+    ),
+
+  // Mode B: from calibration UI (manual or CSV imported)
+  calibrate: (projectId: string, body: import("./types").CalibrateRubricRequest) =>
+    http.post<{ draft_id: string }>(
+      `/projects/${projectId}/calibrate-rubric`,
+      body
+    ),
+
+  // Poll draft status
+  get: (projectId: string, draftId: string) =>
+    http.get<import("./types").RubricDraft>(
+      `/projects/${projectId}/rubric-drafts/${draftId}`
+    ),
+
+  // Cancel generation
+  cancel: (projectId: string, draftId: string) =>
+    http.post<void>(
+      `/projects/${projectId}/rubric-drafts/${draftId}/cancel`,
+      {}
+    ),
+
+  // List all drafts
+  list: (projectId: string) =>
+    http.get<import("./types").RubricDraft[]>(
+      `/projects/${projectId}/rubric-drafts`
+    ),
+
+  // Retry failed draft
+  retry: (projectId: string, draftId: string) =>
+    http.post<{ draft_id: string }>(
+      `/projects/${projectId}/rubric-drafts/${draftId}/retry`,
+      {}
+    ),
+
+  // Delete draft
+  remove: (projectId: string, draftId: string) =>
+    http.del<void>(`/projects/${projectId}/rubric-drafts/${draftId}`),
+}

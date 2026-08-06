@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ArrowLeft, Loader2, Pencil } from "lucide-react"
 import { toast } from "sonner"
 
@@ -40,6 +40,8 @@ export function ProjectDetailPage() {
   const [editName, setEditName] = useState("")
   const [editDesc, setEditDesc] = useState("")
   const [saving, setSaving] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get("tab") || "prompts"
 
   useEffect(() => {
     let active = true
@@ -159,7 +161,11 @@ export function ProjectDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <Tabs defaultValue="prompts" className="w-full">
+      <Tabs 
+        value={activeTab} 
+        onValueChange={(val) => setSearchParams((prev) => { prev.set("tab", val); return prev; })}
+        className="w-full"
+      >
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="prompts">System prompts</TabsTrigger>
           <TabsTrigger value="rubric">Evaluation prompts</TabsTrigger>
@@ -183,15 +189,16 @@ export function ProjectDetailPage() {
         </TabsContent>
 
         <TabsContent value="rubric">
-          {loading ? (
+          {loading || !project ? (
             <LoadingPanel />
           ) : (
             <PromptVersionsTab
-              projectId={id}
+              projectId={project.id}
               api={evaluationPromptsApi}
-              title="Evaluation prompts"
-              description="Versioned rubrics used by the evaluator model to grade outputs."
-              placeholder="Rate the match on a continuous scale from 0.0 to 1.0..."
+              title="Evaluation Prompts"
+              description="Instructions defining the evaluation rubric and scoring criteria."
+              placeholder="e.g. Evaluate the output based on clarity and accuracy. Score 1.0 for perfect, 0.0 for wrong."
+              isEvaluationPrompt
             />
           )}
         </TabsContent>

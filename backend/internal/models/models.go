@@ -219,3 +219,19 @@ type EvaluationResult struct {
 	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
 }
 
+// RubricDraft represents an auto-refinement session for generating an evaluation prompt
+type RubricDraft struct {
+	ID                 uuid.UUID  `db:"id" json:"id"`
+	ProjectID          uuid.UUID  `db:"project_id" json:"project_id"`
+	Status             string           `db:"status" json:"status"`
+	DraftContent       *string          `db:"draft_content" json:"draft_content"`
+	FailureReason      *string          `db:"failure_reason" json:"failure_reason"`
+	Payload            *json.RawMessage `db:"payload" json:"payload"`
+	SourceRunID        *uuid.UUID       `db:"source_run_id" json:"source_run_id"`
+	BasePromptID       *uuid.UUID       `db:"base_prompt_id" json:"base_prompt_id"`
+	BasePromptVersion  *int             `db:"base_prompt_version" json:"base_prompt_version"`
+	ResultsAnalyzed    *int             `db:"results_analyzed" json:"results_analyzed"`
+	CreatedBy          *uuid.UUID       `db:"created_by" json:"created_by"`
+	CreatedAt          time.Time        `db:"created_at" json:"created_at"`
+	CompletedAt        *time.Time       `db:"completed_at" json:"completed_at"`
+}

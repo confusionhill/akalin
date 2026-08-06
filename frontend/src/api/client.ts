@@ -142,6 +142,58 @@ export const http = {
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
   del: <T>(path: string) => request<T>("DELETE", path),
+  postForm: async <T>(path: string, body: FormData): Promise<T> => {
+    const url = `${BASE_URL}${path}`
+    logger.info(`POST ${path} (FormData)`)
+    
+    // We don't set Content-Type so fetch can set the correct multipart boundary
+    const headers = authHeaders()
+    delete headers["Content-Type"]
+
+    let res: Response
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers,
+        body,
+      })
+    } catch (err) {
+      logger.error(`POST ${path} network error`, err)
+      throw new ApiError(
+        err instanceof Error ? err.message : "Network request failed",
+        0,
+      )
+    }
+
+    const text = await res.text()
+    let data: unknown = null
+    if (text) {
+      try {
+        data = JSON.parse(text)
+      } catch {
+        data = text
+      }
+    }
+
+    if (!res.ok) {
+      const payload = data as { message?: string } | null
+      const message =
+        (payload && typeof payload === "object" && payload.message) ||
+        (typeof data === "string" && data) ||
+            res.statusText ||
+            `Request failed with status ${res.status}`
+      logger.error(`POST ${path} -> ${res.status}`, { message, data })
+      if (res.status === 401) {
+        localStorage.removeItem("llm_eval.token")
+        clearStoredAuth()
+        toast.error("Session expired. Please login again.")
+      }
+      throw new ApiError(message, res.status, data)
+    }
+
+    logger.info(`POST ${path} -> ${res.status}`)
+    return data as T
+  },
 }
 
 export function parseHeaders(value: string): HeadersMap {

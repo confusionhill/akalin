@@ -196,3 +196,35 @@ export interface UpdatePasswordInput {
   current_password: string
   new_password: string
 }
+
+export interface RubricDraft {
+  id: string
+  project_id: string
+  status: "pending" | "running" | "completed" | "failed" | "cancelled"
+  draft_content: string | null
+  failure_reason: string | null
+  payload: any | null
+  source_run_id: string | null
+  base_prompt_id: string | null
+  base_prompt_version: number | null
+  results_analyzed: number | null
+  created_by: string | null
+  created_at: string
+  completed_at: string | null
+}
+
+export interface RubricTrainingRow {
+  input: string
+  expected_output: string
+  actual_output: string
+  score: string
+  reasoning: string
+}
+
+export interface CalibrateRubricRequest {
+  provider_id: string
+  model: string
+  base_prompt_id?: string
+  custom_instructions: string
+  rows: RubricTrainingRow[]
+}

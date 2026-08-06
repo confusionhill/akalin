@@ -15,6 +15,7 @@ import (
 
 var (
 	activeRuns sync.Map
+	activeRubricDrafts sync.Map
 )
 
 // StartEvaluationWorkers initializes the background worker pool for processing pending evaluation runs.
@@ -31,6 +32,24 @@ func CancelRun(runID uuid.UUID) {
 		log.Printf("[worker] canceling active run %s", runID)
 		cancelFunc.(context.CancelFunc)()
 	}
+}
+
+// CancelRubricGeneration aborts an actively running rubric generation if it exists on this instance.
+func CancelRubricGeneration(draftID uuid.UUID) {
+	if cancelFunc, ok := activeRubricDrafts.Load(draftID); ok {
+		log.Printf("[worker] canceling rubric draft generation %s", draftID)
+		cancelFunc.(context.CancelFunc)()
+	}
+}
+
+// StoreActiveRubricDraft stores the cancel function for a rubric generation.
+func StoreActiveRubricDraft(draftID uuid.UUID, cancel context.CancelFunc) {
+	activeRubricDrafts.Store(draftID, cancel)
+}
+
+// DeleteActiveRubricDraft removes a rubric generation from the active map.
+func DeleteActiveRubricDraft(draftID uuid.UUID) {
+	activeRubricDrafts.Delete(draftID)
 }
 
 func workerLoop(db *sqlx.DB, workerID int) {

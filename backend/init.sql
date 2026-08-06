@@ -142,6 +142,23 @@ CREATE TABLE evaluation_results (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 12. Rubric Drafts table (Auto-Refinement)
+CREATE TABLE rubric_drafts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    status VARCHAR(20) DEFAULT 'pending',   -- pending, running, completed, failed, cancelled
+    draft_content TEXT,                      -- the generated rubric
+    failure_reason TEXT,
+    payload JSONB,                           -- stores original calibration request config
+    source_run_id UUID,                     -- NULL for CSV mode
+    base_prompt_id UUID REFERENCES evaluation_prompts(id) ON DELETE SET NULL,  -- selected foundation prompt
+    base_prompt_version INT,                -- version of that prompt (denormalized for display)
+    results_analyzed INT,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
 -- Indexing for performance
 CREATE INDEX idx_projects_tenant ON projects(tenant_id);
 CREATE INDEX idx_system_prompts_project ON system_prompts(project_id);
@@ -152,6 +169,7 @@ CREATE INDEX idx_tools_tenant ON tools(tenant_id);
 CREATE INDEX idx_project_tools_project ON project_tools(project_id);
 CREATE INDEX idx_evaluation_runs_project ON evaluation_runs(project_id);
 CREATE INDEX idx_evaluation_results_run ON evaluation_results(run_id);
+CREATE INDEX idx_rubric_drafts_project ON rubric_drafts(project_id);
 
 -- ==========================================
 -- SEED MOCK DATA FOR LOCAL DEVELOPMENT
