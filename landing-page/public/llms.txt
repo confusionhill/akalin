@@ -1,0 +1,30 @@
+# Akalin
+
+> Akalin is an open-source, evaluation-driven development (EDD) platform for designing, benchmarking, auditing, and grading Large Language Model (LLM) system prompts and tool-calling agentic workflows with custom rubrics and programmatic checks.
+
+## Key Features & Capabilities
+
+- **Three-Layered Evaluation-Driven Development (EDD)**:
+  - Layer 1: Programmatic Checks (JSON format validity, schema enforcement).
+  - Layer 2: LLM-as-a-Judge Evaluation with custom scoring rubrics (0.0 to 1.0).
+  - Layer 3: Human-in-the-loop audit and manual review.
+- **Interactive Stack Tracing & Token Metrics**: Full timeline visualization of LLM generation steps (`User Input` -> `AI Tool Call` -> `Tool Result` -> `AI Final Answer`) with per-step token consumption metrics (`in | out`).
+- **Mock Tool Calling & BYOK**: Simulates external API tools (weather, database queries, search tools) without incurring live API costs or unintended side effects during evaluation runs.
+- **OpenAI-Compatible & Custom Provider Support**: Integrates seamlessly with OpenAI, Ollama, Azure OpenAI, OpenRouter, and local custom endpoints.
+
+## Documentation & Guides
+
+- [Getting Started Guide](/docs/get-started): Quickstart guide to running Akalin locally or deploying via Docker.
+- [Docs Overview](/docs): Full technical documentation for project setup, rubric configuration, and prompt versioning.
+
+## Engineering Blog Articles
+
+- [Interactive Stack Tracing & Token Metrics](/blog/interactive-stack-tracing-token-metrics): Step-by-step visual debugging and token tracking for agentic workflows.
+- [Mocking External Tools in Prompt Evaluations](/blog/tool-mocking-evaluation): How to isolate unit tests for tool-calling agents using mock responses.
+- [Building a Robust LLM Evaluation Queue](/blog/building-a-robust-llm-queue): Asynchronous pipeline queuing architecture for scalable prompt evaluations.
+- [Why Prompt Evaluation Matters](/blog/why-prompt-evaluation-matters): Moving from vibe-based testing to disciplined Eval-Driven Development.
+
+## Repository & License
+
+- [GitHub Repository](https://github.com/confusionhill/akalin): Full source code (Go backend, React frontend, Astro landing page).
+- **License**: Open Source under GPL-3.0.

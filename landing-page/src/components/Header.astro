@@ -1,29 +1,62 @@
 ---
-import { Button } from '@/components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Menu, X } from "lucide-react";
 ---
 
-<header class="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex flex-col w-full border-b backdrop-blur bg-grid">
-  <div class="container mx-auto flex h-16 items-center justify-between px-4 md:px-8">
+<header
+  class="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex flex-col w-full border-b backdrop-blur bg-grid"
+>
+  <div
+    class="container mx-auto flex h-16 items-center justify-between px-4 md:px-8"
+  >
     <div class="flex items-center gap-2 min-w-0">
       <a href="/" class="flex items-center gap-2">
-        <img src="/icon.webp" alt="Akalin Icon" class="size-8 rounded-lg shrink-0" />
+        <img
+          src="/icon.webp"
+          alt="Akalin Icon"
+          class="size-8 rounded-lg shrink-0"
+        />
         <span class="text-lg font-bold tracking-tight truncate">Akalin</span>
       </a>
     </div>
-    
+
     <!-- Desktop Navigation Links -->
     <nav class="hidden md:flex items-center gap-6 text-sm font-medium">
-      <a href="/#features" class="text-muted-foreground hover:text-foreground transition-colors">Features</a>
-      <a href="/#testimonials" class="text-muted-foreground hover:text-foreground transition-colors">Testimonials</a>
-      <a href="/#faq" class="text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
-      <a href="/docs" class="text-muted-foreground hover:text-foreground transition-colors">Docs</a>
-      <a href="/blog" class="text-muted-foreground hover:text-foreground transition-colors">Blog</a>
+      <a
+        href="/#features"
+        class="text-muted-foreground hover:text-foreground transition-colors"
+        >Features</a
+      >
+      <a
+        href="/#testimonials"
+        class="text-muted-foreground hover:text-foreground transition-colors"
+        >Testimonials</a
+      >
+      <a
+        href="/#faq"
+        class="text-muted-foreground hover:text-foreground transition-colors"
+        >FAQ</a
+      >
+      <a
+        href="/docs"
+        class="text-muted-foreground hover:text-foreground transition-colors"
+        >Docs</a
+      >
+      <a
+        href="/blog"
+        class="text-muted-foreground hover:text-foreground transition-colors"
+        >Blog</a
+      >
     </nav>
 
     <!-- Right Side Actions & Hamburger Toggle -->
     <div class="flex items-center gap-4">
-      <a href="https://github.com/confusionhill/akalin" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium hidden sm:block">
+      <a
+        href="https://github.com/confusionhill/akalin"
+        target="_blank"
+        rel="noreferrer"
+        class="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium hidden sm:block"
+      >
         GitHub
       </a>
       <a href="/docs">
@@ -33,55 +66,88 @@ import { Menu, X } from 'lucide-react';
       </a>
 
       <!-- Mobile Hamburger Button -->
-      <button id="mobile-menu-btn" aria-label="Toggle Menu" class="md:hidden p-2 rounded-md hover:bg-accent text-foreground transition-colors">
-        <Menu class="size-6 block" id="menu-icon-open" />
-        <X class="size-6 hidden" id="menu-icon-close" />
+      <button
+        id="mobile-menu-btn"
+        aria-label="Toggle Menu"
+        class="md:hidden p-2 rounded-md hover:bg-accent text-foreground transition-colors"
+      >
+        <Menu className="size-6 block" id="menu-icon-open" />
+        <X className="size-6 hidden" id="menu-icon-close" />
       </button>
     </div>
   </div>
 
   <!-- Mobile Collapsible Menu Drawer -->
-  <div id="mobile-menu" class="hidden md:hidden border-t bg-background/95 backdrop-blur px-6 py-6 flex-col gap-4">
+  <div
+    id="mobile-menu"
+    class="hidden md:hidden border-t bg-background/95 backdrop-blur px-6 py-6 flex-col gap-4"
+  >
     <nav class="flex flex-col gap-4 text-base font-medium">
-      <a href="/#features" class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1 border-b border-border/40">Features</a>
-      <a href="/#testimonials" class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1 border-b border-border/40">Testimonials</a>
-      <a href="/#faq" class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1 border-b border-border/40">FAQ</a>
-      <a href="/docs" class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1 border-b border-border/40">Docs</a>
-      <a href="/blog" class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1 border-b border-border/40">Blog</a>
-      <a href="https://github.com/confusionhill/akalin" target="_blank" rel="noreferrer" class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1">GitHub</a>
+      <a
+        href="/#features"
+        class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1 border-b border-border/40"
+        >Features</a
+      >
+      <a
+        href="/#testimonials"
+        class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1 border-b border-border/40"
+        >Testimonials</a
+      >
+      <a
+        href="/#faq"
+        class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1 border-b border-border/40"
+        >FAQ</a
+      >
+      <a
+        href="/docs"
+        class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1 border-b border-border/40"
+        >Docs</a
+      >
+      <a
+        href="/blog"
+        class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1 border-b border-border/40"
+        >Blog</a
+      >
+      <a
+        href="https://github.com/confusionhill/akalin"
+        target="_blank"
+        rel="noreferrer"
+        class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors py-1"
+        >GitHub</a
+      >
     </nav>
   </div>
 </header>
 
 <script>
-  const btn = document.getElementById('mobile-menu-btn');
-  const menu = document.getElementById('mobile-menu');
-  const iconOpen = document.getElementById('menu-icon-open');
-  const iconClose = document.getElementById('menu-icon-close');
-  const navLinks = document.querySelectorAll('.mobile-nav-link');
+  const btn = document.getElementById("mobile-menu-btn");
+  const menu = document.getElementById("mobile-menu");
+  const iconOpen = document.getElementById("menu-icon-open");
+  const iconClose = document.getElementById("menu-icon-close");
+  const navLinks = document.querySelectorAll(".mobile-nav-link");
 
   if (btn && menu && iconOpen && iconClose) {
-    btn.addEventListener('click', () => {
-      const isHidden = menu.classList.contains('hidden');
+    btn.addEventListener("click", () => {
+      const isHidden = menu.classList.contains("hidden");
       if (isHidden) {
-        menu.classList.remove('hidden');
-        menu.classList.add('flex');
-        iconOpen.classList.add('hidden');
-        iconClose.classList.remove('hidden');
+        menu.classList.remove("hidden");
+        menu.classList.add("flex");
+        iconOpen.classList.add("hidden");
+        iconClose.classList.remove("hidden");
       } else {
-        menu.classList.add('hidden');
-        menu.classList.remove('flex');
-        iconOpen.classList.remove('hidden');
-        iconClose.classList.add('hidden');
+        menu.classList.add("hidden");
+        menu.classList.remove("flex");
+        iconOpen.classList.remove("hidden");
+        iconClose.classList.add("hidden");
       }
     });
 
     navLinks.forEach((link) => {
-      link.addEventListener('click', () => {
-        menu.classList.add('hidden');
-        menu.classList.remove('flex');
-        iconOpen.classList.remove('hidden');
-        iconClose.classList.add('hidden');
+      link.addEventListener("click", () => {
+        menu.classList.add("hidden");
+        menu.classList.remove("flex");
+        iconOpen.classList.remove("hidden");
+        iconClose.classList.add("hidden");
       });
     });
   }
