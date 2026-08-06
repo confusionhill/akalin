@@ -1,0 +1,5 @@
+# Cloudflare Pages 301 Redirect Rules
+# Redirect www to non-www canonical domain
+https://www.akalin.space/* https://akalin.space/:splat 301!
+http://www.akalin.space/* https://akalin.space/:splat 301!
+http://akalin.space/* https://akalin.space/:splat 301!
