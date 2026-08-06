@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -214,6 +215,32 @@ func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
 			continue
 		}
 		log.Printf("%s target generation ok, len=%d tools_called=%v", casePrefix, len(generatedOutput), toolsCalled)
+
+		// LAYER 1: Programmatic Check (Format Validation)
+		if strings.EqualFold(tc.ExpectedFormat, "json") {
+			cleanOutput := strings.TrimSpace(generatedOutput)
+			if strings.HasPrefix(cleanOutput, "```") {
+				lines := strings.Split(cleanOutput, "\n")
+				if len(lines) >= 2 {
+					cleanOutput = strings.Join(lines[1:len(lines)-1], "\n")
+					cleanOutput = strings.TrimSpace(cleanOutput)
+				}
+			}
+
+			if !json.Valid([]byte(cleanOutput)) {
+				log.Printf("%s Layer 1 Programmatic Check FAILED: invalid JSON output", casePrefix)
+				score := 0.0
+				isPassed := false
+				reasoning := "Layer 1 Programmatic Check Failed: Target LLM output is not valid JSON."
+
+				err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reasoning, toolsCalled, trace)
+				if err != nil {
+					log.Printf("%s failed to save Layer 1 result: %v", casePrefix, err)
+				}
+				continue
+			}
+			log.Printf("%s Layer 1 Programmatic Check PASSED (valid JSON)", casePrefix)
+		}
 
 		// Save the generation result
 		if run.EnableMemory && memory != nil {

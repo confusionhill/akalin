@@ -680,13 +680,18 @@ func (h *Handler) CreateTestCase(c echo.Context) error {
 		return err
 	}
 
+	fmtVal := req.ExpectedFormat
+	if fmtVal == "" {
+		fmtVal = "plain_text"
+	}
+
 	query := `
-		INSERT INTO test_cases (project_id, input_prompt, expected_output, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO test_cases (project_id, input_prompt, expected_output, expected_format, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING *
 	`
 	var tc models.TestCase
-	err = h.DB.Get(&tc, query, projectID, req.InputPrompt, req.ExpectedOutput, userID, userID)
+	err = h.DB.Get(&tc, query, projectID, req.InputPrompt, req.ExpectedOutput, fmtVal, userID, userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -716,14 +721,19 @@ func (h *Handler) UpdateTestCase(c echo.Context) error {
 		return err
 	}
 
+	fmtVal := req.ExpectedFormat
+	if fmtVal == "" {
+		fmtVal = "plain_text"
+	}
+
 	query := `
 		UPDATE test_cases 
-		SET input_prompt = $1, expected_output = $2, updated_by = $3, updated_at = $4 
-		WHERE id = $5 AND project_id = $6
+		SET input_prompt = $1, expected_output = $2, expected_format = $3, updated_by = $4, updated_at = $5 
+		WHERE id = $6 AND project_id = $7
 		RETURNING *
 	`
 	var tc models.TestCase
-	err = h.DB.Get(&tc, query, req.InputPrompt, req.ExpectedOutput, userID, time.Now(), tcID, projectID)
+	err = h.DB.Get(&tc, query, req.InputPrompt, req.ExpectedOutput, fmtVal, userID, time.Now(), tcID, projectID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return echo.NewHTTPError(http.StatusNotFound, "Test case not found")
@@ -867,6 +877,7 @@ type DetailedResult struct {
 	models.EvaluationResult
 	InputPrompt    string `db:"input_prompt" json:"input_prompt"`
 	ExpectedOutput string `db:"expected_output" json:"expected_output"`
+	ExpectedFormat string `db:"expected_format" json:"expected_format"`
 }
 
 type RunDetailsResponse struct {
@@ -1005,7 +1016,7 @@ func (h *Handler) GetEvaluationDetails(c echo.Context) error {
 		SELECT 
 			er.id, er.run_id, er.test_case_id, er.generated_output, er.score, 
 			er.is_passed, er.evaluator_reasoning, er.tools_called, er.trace, er.created_at,
-			tc.input_prompt, tc.expected_output
+			tc.input_prompt, tc.expected_output, tc.expected_format
 		FROM evaluation_results er 
 		JOIN test_cases tc ON er.test_case_id = tc.id 
 		WHERE er.run_id = $1 

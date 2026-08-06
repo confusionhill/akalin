@@ -28,9 +28,10 @@ import { formatRelativeTime, truncate } from "@/lib/utils"
 interface FormState {
   input_prompt: string
   expected_output: string
+  expected_format: "plain_text" | "json"
 }
 
-const empty: FormState = { input_prompt: "", expected_output: "" }
+const empty: FormState = { input_prompt: "", expected_output: "", expected_format: "plain_text" }
 
 export function TestCasesTab({ projectId }: { projectId: string }) {
   const [items, setItems] = useState<TestCase[] | null>(null)
@@ -68,6 +69,7 @@ export function TestCasesTab({ projectId }: { projectId: string }) {
     setForm({
       input_prompt: tc.input_prompt,
       expected_output: tc.expected_output,
+      expected_format: tc.expected_format ?? "plain_text",
     })
     setOpen(true)
   }
@@ -80,12 +82,14 @@ export function TestCasesTab({ projectId }: { projectId: string }) {
         await testCasesApi.update(projectId, editing.id, {
           input_prompt: form.input_prompt.trim(),
           expected_output: form.expected_output.trim(),
+          expected_format: form.expected_format,
         })
         toast.success("Test case updated")
       } else {
         await testCasesApi.create(projectId, {
           input_prompt: form.input_prompt.trim(),
           expected_output: form.expected_output.trim(),
+          expected_format: form.expected_format,
         })
         toast.success("Test case created")
       }
@@ -157,6 +161,23 @@ export function TestCasesTab({ projectId }: { projectId: string }) {
                 placeholder="Reference answer used for grading"
                 className="min-h-24"
               />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="tc-format">Expected Output Format (Layer 1 Check)</Label>
+              <select
+                id="tc-format"
+                value={form.expected_format}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    expected_format: e.target.value as "plain_text" | "json",
+                  }))
+                }
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="plain_text">Plain Text (No format check)</option>
+                <option value="json">JSON (Layer 1 Programmatic Validation)</option>
+              </select>
             </div>
           </div>
           <DialogFooter>
@@ -246,9 +267,18 @@ export function TestCasesTab({ projectId }: { projectId: string }) {
                   </p>
                 </div>
                 <div>
-                  <Badge variant="info" className="mb-1.5">
-                    Expected
-                  </Badge>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Badge variant="info">Expected</Badge>
+                    {tc.expected_format === "json" ? (
+                      <Badge variant="default" className="text-[10px] bg-purple-600 hover:bg-purple-700">
+                        Layer 1: JSON
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">
+                        Text
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-muted-foreground line-clamp-3 text-xs">
                     {tc.expected_output}
                   </p>

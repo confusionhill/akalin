@@ -62,6 +62,26 @@ This document outlines planned features and improvements for the LLM Evaluation 
 - [ ] Integration with other tools
   - Connect with CI/CD pipelines, Slack, Notion, etc.
 
+### v2.0 - Three-Layered Eval-Driven Development (EDD)
+
+Inspired by Airbnb's *"Eval-driven development: Lessons from evaluating GenAI at scale"*:
+
+- [/] **Layer 1: Programmatic Checks (Deterministic First-Pass Filtering)**
+  - Fast, format-based validation rules (JSON validity, Plain Text) to filter obvious errors before invoking expensive LLM evaluators.
+  - [ ] **Custom Code Programmatic Checks**: Support custom Python / JavaScript code snippets for programmatic assertion checks.
+
+- [x] **Layer 2: LLM-as-a-Judge & Calibration against Golden Datasets**
+  - Implement Virtual Judges with strict, unambiguous rubrics.
+  - Add a **Judge Calibration System**: benchmark Virtual Judges against a curated "Golden Dataset" (including bad examples) to target an 80–90% human agreement score.
+
+- [ ] **Layer 3: Human Evaluation & Annotation Interface**
+  - High-resource human review workflow to grade outputs, establish ground truth, resolve edge cases, and continuously calibrate Virtual Judges.
+
+- [ ] **Manual Review Workflow ("The Golden Rule")**
+  - Streamlined UI for developers to manually inspect and annotate prototype outputs (~100 cases) to build failure mode intuition prior to creating automated evaluators.
+
+---
+
 ## Notes
 
 This document is a living roadmap. Features may be added, removed, or re-prioritized as the project evolves.

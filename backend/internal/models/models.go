@@ -63,6 +63,7 @@ type TestCase struct {
 	ProjectID      uuid.UUID `db:"project_id" json:"project_id"`
 	InputPrompt    string    `db:"input_prompt" json:"input_prompt" validate:"required"`
 	ExpectedOutput string    `db:"expected_output" json:"expected_output" validate:"required"`
+	ExpectedFormat string    `db:"expected_format" json:"expected_format"`
 	CreatedBy      uuid.UUID `db:"created_by" json:"created_by"`
 	UpdatedBy      uuid.UUID `db:"updated_by" json:"updated_by"`
 	CreatedAt      time.Time `db:"created_at" json:"created_at"`

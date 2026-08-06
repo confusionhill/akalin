@@ -63,6 +63,7 @@ CREATE TABLE test_cases (
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     input_prompt TEXT NOT NULL,
     expected_output TEXT NOT NULL,
+    expected_format VARCHAR(50) DEFAULT 'plain_text',
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -199,8 +200,9 @@ VALUES
 ('40000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'Grade the response on a scale of 0.0 to 1.0 based on correctness, appropriate tool usage, and conciseness.', 1, '00000000-0000-0000-0000-000000000002');
 
 -- Seed Test Cases for Tool Calling Project
-INSERT INTO test_cases (id, project_id, input_prompt, expected_output, created_by)
+INSERT INTO test_cases (id, project_id, input_prompt, expected_output, expected_format, created_by)
 VALUES 
-('50000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'What is the current weather in San Francisco?', 'The current weather in San Francisco is 72°F and Sunny.', '00000000-0000-0000-0000-000000000002'),
-('50000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', 'Write a short poem about the ocean.', 'Waves whisper soft upon the golden shore...', '00000000-0000-0000-0000-000000000002');
+('50000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'What is the current weather in San Francisco?', 'The current weather in San Francisco is 72°F and Sunny.', 'plain_text', '00000000-0000-0000-0000-000000000002'),
+('50000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', 'Write a short poem about the ocean.', 'Waves whisper soft upon the golden shore...', 'plain_text', '00000000-0000-0000-0000-000000000002'),
+('50000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001', 'Get weather for San Francisco in JSON format', '{"city": "San Francisco", "temperature": 72, "unit": "F", "condition": "Sunny"}', 'json', '00000000-0000-0000-0000-000000000002');
 

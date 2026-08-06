@@ -48,6 +48,7 @@ export interface TestCase {
   project_id: string
   input_prompt: string
   expected_output: string
+  expected_format?: "plain_text" | "json"
   created_by: string
   updated_by: string
   created_at: string
@@ -132,6 +133,7 @@ export interface EvaluationResult {
 export interface DetailedResult extends EvaluationResult {
   input_prompt: string
   expected_output: string
+  expected_format?: "plain_text" | "json"
 }
 
 export interface RunDetails extends EvaluationRun {
@@ -154,6 +156,7 @@ export interface CreateEvaluationPromptInput {
 export interface CreateTestCaseInput {
   input_prompt: string
   expected_output: string
+  expected_format?: "plain_text" | "json"
 }
 
 export interface CreateProviderInput {

@@ -424,7 +424,14 @@ function ResultRow({ result, index }: { result: DetailedResult; index: number })
               {result.input_prompt}
             </DetailField>
             <DetailField label="Expected output">
-              {result.expected_output}
+              <div className="flex flex-col gap-1">
+                <span>{result.expected_output}</span>
+                {result.expected_format === "json" && (
+                  <Badge variant="default" className="w-fit text-[10px] bg-purple-600 hover:bg-purple-700 mt-1">
+                    Layer 1 Programmatic Check: JSON Expected
+                  </Badge>
+                )}
+              </div>
             </DetailField>
             <DetailField label="Tools called by LLM">
               {result.tools_called && result.tools_called.length > 0 ? (
