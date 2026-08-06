@@ -1,5 +1,7 @@
 # LLM System Prompt Evaluation – Frontend
 
+The frontend provides an interactive dashboard built with React, Vite, Tailwind CSS, and Shadcn UI. It includes prompt comparison tools, custom evaluation rubrics management, real-time queue polling, and an interactive **Vertical Execution Timeline** for inspecting step-by-step LLM tool calls and token metrics.
+
 ## Requirements
 
 - **Node.js**: 20 or higher (LTS recommended)

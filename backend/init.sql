@@ -137,6 +137,7 @@ CREATE TABLE evaluation_results (
     is_passed BOOLEAN,
     evaluator_reasoning TEXT,
     tools_called JSONB DEFAULT '[]'::jsonb,
+    trace JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

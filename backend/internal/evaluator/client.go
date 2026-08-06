@@ -52,6 +52,12 @@ type ChatCompletionsRequest struct {
 	Temperature float64          `json:"temperature"`
 }
 
+type ChatUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 type ChatCompletionsResponse struct {
 	Choices []struct {
 		Message ChatMessage `json:"message"`
@@ -59,6 +65,7 @@ type ChatCompletionsResponse struct {
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error,omitempty"`
+	Usage ChatUsage `json:"usage,omitempty"`
 }
 
 type LLMClient struct {
@@ -78,12 +85,34 @@ func NewLLMClient(baseURL, apiKey string, customHeaders map[string]string) *LLMC
 	}
 }
 
-func (c *LLMClient) Generate(ctx context.Context, model string, systemPrompt, userPrompt string, temperature float64) (string, error) {
+func (c *LLMClient) Generate(ctx context.Context, model string, systemPrompt, userPrompt string, temperature float64) (string, []models.TraceStep, error) {
 	messages, err := buildMessages(systemPrompt, userPrompt, "")
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return c.makeRequest(ctx, model, messages, temperature)
+	
+	var trace []models.TraceStep
+	if userPrompt != "" {
+		trace = append(trace, models.TraceStep{
+			StepType: "user_input",
+			Content:  userPrompt,
+		})
+	}
+	
+	msg, usage, err := c.makeRequestWithTools(ctx, model, messages, nil, temperature)
+	if err != nil {
+		return "", trace, err
+	}
+
+	trace = append(trace, models.TraceStep{
+		StepType:         "ai_answer",
+		Content:          msg.Content,
+		PromptTokens:     usage.PromptTokens,
+		CompletionTokens: usage.CompletionTokens,
+		TotalTokens:      usage.TotalTokens,
+	})
+
+	return msg.Content, trace, nil
 }
 
 func buildMessages(systemPrompt, userPrompt, conversationHistory string) ([]ChatMessage, error) {
@@ -123,16 +152,7 @@ func buildMessages(systemPrompt, userPrompt, conversationHistory string) ([]Chat
 	return messages, nil
 }
 
-func (c *LLMClient) makeRequest(ctx context.Context, model string, messages []ChatMessage, temperature float64) (string, error) {
-	msg, err := c.makeRequestWithTools(ctx, model, messages, nil, temperature)
-	if err != nil {
-		return "", err
-	}
-	return msg.Content, nil
-}
-
-
-func (c *LLMClient) makeRequestWithTools(ctx context.Context, model string, messages []ChatMessage, tools []ToolDefinition, temperature float64) (ChatMessage, error) {
+func (c *LLMClient) makeRequestWithTools(ctx context.Context, model string, messages []ChatMessage, tools []ToolDefinition, temperature float64) (ChatMessage, ChatUsage, error) {
 	url := fmt.Sprintf("%s/chat/completions", c.BaseURL)
 
 	reqBody := ChatCompletionsRequest{
@@ -144,14 +164,14 @@ func (c *LLMClient) makeRequestWithTools(ctx context.Context, model string, mess
 
 	jsonBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return ChatMessage{}, fmt.Errorf("failed to marshal request: %w", err)
+		return ChatMessage{}, ChatUsage{}, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	log.Printf("[llm-client] POST %s model=%s msgs=%d tools=%d", url, model, len(messages), len(tools))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBytes))
 	if err != nil {
-		return ChatMessage{}, fmt.Errorf("failed to create http request: %w", err)
+		return ChatMessage{}, ChatUsage{}, fmt.Errorf("failed to create http request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -166,13 +186,13 @@ func (c *LLMClient) makeRequestWithTools(ctx context.Context, model string, mess
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("[llm-client] request error: %s model=%s err=%v", url, model, err)
-		return ChatMessage{}, fmt.Errorf("http request failed: %w", err)
+		return ChatMessage{}, ChatUsage{}, fmt.Errorf("http request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return ChatMessage{}, fmt.Errorf("failed to read response body: %w", err)
+		return ChatMessage{}, ChatUsage{}, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -183,27 +203,35 @@ func (c *LLMClient) makeRequestWithTools(ctx context.Context, model string, mess
 		log.Printf("[llm-client] non-200 status=%d url=%s model=%s body=%s", resp.StatusCode, url, model, snippet)
 		var errResp ChatCompletionsResponse
 		if json.Unmarshal(respBytes, &errResp) == nil && errResp.Error != nil {
-			return ChatMessage{}, fmt.Errorf("API error (status %d): %s", resp.StatusCode, errResp.Error.Message)
+			return ChatMessage{}, ChatUsage{}, fmt.Errorf("API error (status %d): %s", resp.StatusCode, errResp.Error.Message)
 		}
-		return ChatMessage{}, fmt.Errorf("API error (status %d): %s", resp.StatusCode, snippet)
+		return ChatMessage{}, ChatUsage{}, fmt.Errorf("API error (status %d): %s", resp.StatusCode, snippet)
 	}
 
 	var chatResp ChatCompletionsResponse
 	if err := json.Unmarshal(respBytes, &chatResp); err != nil {
-		return ChatMessage{}, fmt.Errorf("failed to unmarshal response: %w", err)
+		return ChatMessage{}, ChatUsage{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	if len(chatResp.Choices) == 0 {
-		return ChatMessage{}, fmt.Errorf("received empty choices in completions response")
+		return ChatMessage{}, ChatUsage{}, fmt.Errorf("received empty choices in completions response")
 	}
 
-	return chatResp.Choices[0].Message, nil
+	return chatResp.Choices[0].Message, chatResp.Usage, nil
 }
 
-func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemPrompt, userPrompt string, availableTools []models.Tool, temperature float64) (string, []string, error) {
+func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemPrompt, userPrompt string, availableTools []models.Tool, temperature float64) (string, []string, []models.TraceStep, error) {
 	messages, err := buildMessages(systemPrompt, userPrompt, "")
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
+	}
+
+	var trace []models.TraceStep
+	if userPrompt != "" {
+		trace = append(trace, models.TraceStep{
+			StepType: "user_input",
+			Content:  userPrompt,
+		})
 	}
 
 	var toolDefs []ToolDefinition
@@ -225,15 +253,39 @@ func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemP
 	const maxTurns = 6
 
 	for turn := 0; turn < maxTurns; turn++ {
-		msg, err := c.makeRequestWithTools(ctx, model, messages, toolDefs, temperature)
+		msg, usage, err := c.makeRequestWithTools(ctx, model, messages, toolDefs, temperature)
 		if err != nil {
-			return "", toolsCalled, err
+			return "", toolsCalled, trace, err
 		}
 
 		// If no tool calls requested, the LLM has produced its final output
 		if len(msg.ToolCalls) == 0 {
-			return msg.Content, toolsCalled, nil
+			trace = append(trace, models.TraceStep{
+				StepType:         "ai_answer",
+				Content:          msg.Content,
+				PromptTokens:     usage.PromptTokens,
+				CompletionTokens: usage.CompletionTokens,
+				TotalTokens:      usage.TotalTokens,
+			})
+			return msg.Content, toolsCalled, trace, nil
 		}
+
+		var formattedToolCalls []map[string]interface{}
+		for _, tc := range msg.ToolCalls {
+			formattedToolCalls = append(formattedToolCalls, map[string]interface{}{
+				"name":      tc.Function.Name,
+				"arguments": tc.Function.Arguments,
+			})
+		}
+
+		trace = append(trace, models.TraceStep{
+			StepType:         "ai_tool_call",
+			Content:          msg.Content,
+			ToolCalls:        formattedToolCalls,
+			PromptTokens:     usage.PromptTokens,
+			CompletionTokens: usage.CompletionTokens,
+			TotalTokens:      usage.TotalTokens,
+		})
 
 		// Append the assistant's response (with tool_calls) to conversation history
 		messages = append(messages, msg)
@@ -251,6 +303,12 @@ func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemP
 				}
 			}
 
+			trace = append(trace, models.TraceStep{
+				StepType: "tool_result",
+				ToolName: toolName,
+				Content:  mockResult,
+			})
+
 			messages = append(messages, ChatMessage{
 				Role:       "tool",
 				ToolCallID: tc.ID,
@@ -262,7 +320,7 @@ func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemP
 
 	// Fallback if maxTurns reached
 	lastMsg := messages[len(messages)-1]
-	return lastMsg.Content, toolsCalled, nil
+	return lastMsg.Content, toolsCalled, trace, nil
 }
 
 
@@ -271,6 +329,10 @@ func (c *LLMClient) GenerateWithMemory(ctx context.Context, model string, system
 	if err != nil {
 		return "", err
 	}
-	return c.makeRequest(ctx, model, messages, temperature)
+	msg, _, err := c.makeRequestWithTools(ctx, model, messages, nil, temperature)
+	if err != nil {
+		return "", err
+	}
+	return msg.Content, nil
 }
 

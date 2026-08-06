@@ -1,6 +1,6 @@
 # LLM System Prompt Evaluation - Backend
 
-The backend of the LLM System Prompt Evaluation Dashboard is built using Go and the Echo web framework. It exposes a RESTful API, handles project and configuration persistence, orchestrates LLM calls for evaluation, and manages PostgreSQL using `sqlx` (without an ORM) and validates payloads using `go-playground/validator/v10`.
+The backend of the LLM System Prompt Evaluation Dashboard is built using Go and the Echo web framework. It exposes a RESTful API, handles project and configuration persistence, orchestrates LLM calls for evaluation, tracks multi-turn execution stack traces and token usage, and manages PostgreSQL using `sqlx` (without an ORM) and validates payloads using `go-playground/validator/v10`.
 
 ---
 

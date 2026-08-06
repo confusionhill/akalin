@@ -162,6 +162,7 @@ func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
 		
 		var generatedOutput string
 		var toolsCalled []string
+		var trace []models.TraceStep
 		var err error
 
 		// Add current test case's input to conversation history
@@ -187,15 +188,15 @@ func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
 			log.Printf("%s building context prompt with resume=%s", casePrefix, len(memory.Resume) > 0 && memory.Resume != "")
 
 			if len(activeTools) > 0 {
-				generatedOutput, toolsCalled, err = targetClient.GenerateWithTools(ctx, run.TargetModel, contextPrompt, "", activeTools, 0.0)
+				generatedOutput, toolsCalled, trace, err = targetClient.GenerateWithTools(ctx, run.TargetModel, contextPrompt, "", activeTools, 0.0)
 			} else {
-				generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, contextPrompt, "", 0.0)
+				generatedOutput, trace, err = targetClient.Generate(ctx, run.TargetModel, contextPrompt, "", 0.0)
 			}
 		} else {
 			if len(activeTools) > 0 {
-				generatedOutput, toolsCalled, err = targetClient.GenerateWithTools(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, activeTools, 0.0)
+				generatedOutput, toolsCalled, trace, err = targetClient.GenerateWithTools(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, activeTools, 0.0)
 			} else {
-				generatedOutput, err = targetClient.Generate(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, 0.0)
+				generatedOutput, trace, err = targetClient.Generate(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, 0.0)
 			}
 		}
 
@@ -206,7 +207,7 @@ func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
 			isPassed := false
 			reason := "Target generation failed: " + err.Error()
 
-			err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reason, toolsCalled)
+			err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reason, toolsCalled, trace)
 			if err != nil {
 				log.Printf("%s failed to save error result: %v", casePrefix, err)
 			}
@@ -244,7 +245,7 @@ func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
 
 		log.Printf("%s grading with model %s", casePrefix, run.EvaluatorModel)
 		var evalResponse string
-		evalResponse, err = evaluatorClient.Generate(ctx, run.EvaluatorModel, "", evaluatorUserPrompt, 0.0)
+		evalResponse, _, err = evaluatorClient.Generate(ctx, run.EvaluatorModel, "", evaluatorUserPrompt, 0.0)
 
 		var score float64
 		var reasoning string
@@ -270,7 +271,7 @@ func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
 		totalScore += score
 		completedCount++
 
-		err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reasoning, toolsCalled)
+		err = saveResult(db, runID, tc.ID, generatedOutput, score, isPassed, reasoning, toolsCalled, trace)
 		if err != nil {
 			log.Printf("%s failed to save result: %v", casePrefix, err)
 		}
@@ -297,12 +298,12 @@ func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
 	log.Printf("%s completed. avg_score=%.2f passed=%t cases=%d", logPrefix, avgScore, isRunPassed, completedCount)
 }
 
-func saveResult(db *sqlx.DB, runID, testCaseID uuid.UUID, genOutput string, score float64, isPassed bool, reasoning string, toolsCalled models.StringArray) error {
+func saveResult(db *sqlx.DB, runID, testCaseID uuid.UUID, genOutput string, score float64, isPassed bool, reasoning string, toolsCalled models.StringArray, trace models.TraceArray) error {
 	query := `
-		INSERT INTO evaluation_results (run_id, test_case_id, generated_output, score, is_passed, evaluator_reasoning, tools_called)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO evaluation_results (run_id, test_case_id, generated_output, score, is_passed, evaluator_reasoning, tools_called, trace)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-	_, err := db.Exec(query, runID, testCaseID, genOutput, score, isPassed, reasoning, toolsCalled)
+	_, err := db.Exec(query, runID, testCaseID, genOutput, score, isPassed, reasoning, toolsCalled, trace)
 	return err
 }
 

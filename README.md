@@ -13,6 +13,7 @@ Akalin lets developers benchmark how different system prompts perform across a c
 - **Prompt Versioning** — Track historical changes to system prompts and compare or revert previous revisions.
 - **Custom Evaluation Rubrics** — Inject custom grading criteria (tone, formatting, accuracy, tool adherence) per project.
 - **Bring Your Own Key (BYOK)** — Connect any OpenAI-compatible endpoint (Ollama, OpenRouter, Anthropic proxy, etc.) by configuring the base URL, API key, and custom HTTP headers.
+- **Interactive Stack Tracing & Token Metrics** — Inspect the complete step-by-step lifecycle of target LLM executions (`User Input` → `AI Tool Call` → `Tool Result` → `AI Final Answer`) in a vertical timeline view with granular token consumption metrics (`in` / `out`) per step.
 - **Mock Tool Calling & Blacklisting** — Create global mock tools with canned responses, assign them to projects, and selectively blacklist tools per evaluation run to test tool-calling decisions.
 - **Tool Invocation Audit** — Track exactly which tools were called by the target LLM for every test case.
 - **Background Evaluation Queue** — Evaluations run asynchronously via a PostgreSQL `FOR UPDATE SKIP LOCKED` queue with a configurable worker pool. Supports mid-run cancellation.

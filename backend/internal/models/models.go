@@ -117,6 +117,41 @@ func (s *StringArray) Scan(value interface{}) error {
 	return json.Unmarshal(b, s)
 }
 
+// TraceStep represents a single step in the evaluation execution trace
+type TraceStep struct {
+	StepType         string                 `json:"step_type"` // e.g., "user_input", "ai_tool_call", "tool_result", "ai_answer"
+	Content          string                 `json:"content,omitempty"`
+	ToolCalls        []map[string]interface{} `json:"tool_calls,omitempty"` // For ai_tool_call
+	ToolName         string                 `json:"tool_name,omitempty"` // For tool_result
+	PromptTokens     int                    `json:"prompt_tokens,omitempty"`
+	CompletionTokens int                    `json:"completion_tokens,omitempty"`
+	TotalTokens      int                    `json:"total_tokens,omitempty"`
+}
+
+// TraceArray is a []TraceStep stored as a JSONB array.
+type TraceArray []TraceStep
+
+// Value implements the driver.Valuer interface
+func (t TraceArray) Value() (driver.Value, error) {
+	if t == nil {
+		return []byte("[]"), nil
+	}
+	return json.Marshal(t)
+}
+
+// Scan implements the sql.Scanner interface
+func (t *TraceArray) Scan(value interface{}) error {
+	if value == nil {
+		*t = TraceArray{}
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+	return json.Unmarshal(b, t)
+}
+
 type Tool struct {
 	ID          uuid.UUID `db:"id" json:"id"`
 	TenantID    uuid.UUID `db:"tenant_id" json:"tenant_id"`
@@ -179,6 +214,7 @@ type EvaluationResult struct {
 	IsPassed        *bool       `db:"is_passed" json:"is_passed"`
 	EvaluatorReason *string     `db:"evaluator_reasoning" json:"evaluator_reasoning"`
 	ToolsCalled     StringArray `db:"tools_called" json:"tools_called"`
+	Trace           TraceArray  `db:"trace" json:"trace"`
 	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
 }
 

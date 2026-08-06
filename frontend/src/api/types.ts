@@ -106,6 +106,16 @@ export interface EvaluationRun {
   completed_at: string | null
 }
 
+export interface TraceStep {
+  step_type: string
+  content?: string
+  tool_calls?: { name: string; arguments: string }[]
+  tool_name?: string
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
+}
+
 export interface EvaluationResult {
   id: string
   run_id: string
@@ -115,6 +125,7 @@ export interface EvaluationResult {
   is_passed: boolean | null
   evaluator_reasoning: string | null
   tools_called: string[]
+  trace?: TraceStep[]
   created_at: string
 }
 

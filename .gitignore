@@ -60,3 +60,10 @@ coverage.out
 tmp/
 temp/
 scratch/
+
+## Landing Page
+landing-page/.wrangler
+
+## Utils
+video_promo.md
+how_to_start.md

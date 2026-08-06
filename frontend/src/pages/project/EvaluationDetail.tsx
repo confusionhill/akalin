@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, CheckCircle2, Loader2, RotateCw, Trash2, Wrench, XCircle } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Loader2, RotateCw, Trash2, Wrench, XCircle, Activity, User, Bot, Zap, ChevronDown, ChevronRight, Clock } from "lucide-react"
 
 import { toast } from "sonner"
 
@@ -458,10 +458,150 @@ function ResultRow({ result, index }: { result: DetailedResult; index: number })
             <DetailField label="Evaluator reasoning">
               {result.evaluator_reasoning ?? "—"}
             </DetailField>
+
+            {result.trace && result.trace.length > 0 && (
+              <ExecutionTimeline trace={result.trace} />
+            )}
           </div>
         </DialogContent>
       </Dialog>
     </TableRow>
+  )
+}
+
+function ExecutionTimeline({ trace }: { trace: NonNullable<DetailedResult["trace"]> }) {
+  const [showTimeline, setShowTimeline] = useState(false)
+  const [openSteps, setOpenSteps] = useState<Record<number, boolean>>({})
+
+  const toggleStep = (idx: number) => {
+    setOpenSteps((prev) => ({ ...prev, [idx]: !prev[idx] }))
+  }
+
+  const filteredTrace = (trace || []).filter((s) => s.step_type !== "system_prompt")
+
+  if (!filteredTrace || filteredTrace.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-3 mt-4 border-t pt-4">
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase flex items-center gap-2">
+          <Activity className="size-4 text-primary" /> Execution Trace ({filteredTrace.length} step{filteredTrace.length === 1 ? "" : "s"})
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowTimeline(!showTimeline)}
+          className="text-xs gap-1.5 h-8 font-medium"
+        >
+          <Activity className="size-3.5 text-blue-500" />
+          {showTimeline ? "Hide Timeline" : "Show Timeline"}
+        </Button>
+      </div>
+
+      {showTimeline && (
+        <div className="relative pl-6 pt-2 pb-2 space-y-4 before:absolute before:left-2.5 before:top-4 before:bottom-4 before:w-0.5 before:bg-blue-600">
+          {filteredTrace.map((step, idx) => {
+            let Icon = Bot
+            let title = "AI Execution Step"
+            let nodeColor = "bg-blue-600 border-blue-400 text-white"
+            let badgeBg = "bg-blue-500/10 text-blue-400 border-blue-500/20"
+
+            if (step.step_type === "user_input") {
+              Icon = User
+              title = "User Input"
+              nodeColor = "bg-blue-500 border-blue-300"
+              badgeBg = "bg-blue-500/10 text-blue-400 border-blue-500/20"
+            } else if (step.step_type === "ai_tool_call") {
+              Icon = Wrench
+              title = "AI Tool Call"
+              nodeColor = "bg-amber-500 border-amber-300"
+              badgeBg = "bg-amber-500/10 text-amber-400 border-amber-500/20"
+            } else if (step.step_type === "tool_result") {
+              Icon = Wrench
+              title = `Tool Result: ${step.tool_name}`
+              nodeColor = "bg-emerald-500 border-emerald-300"
+              badgeBg = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+            } else if (step.step_type === "ai_answer") {
+              Icon = Bot
+              title = "AI Final Answer"
+              nodeColor = "bg-purple-500 border-purple-300"
+              badgeBg = "bg-purple-500/10 text-purple-400 border-purple-500/20"
+            } else if (step.step_type === "system_prompt") {
+              Icon = Clock
+              title = "System Evaluation Step"
+              nodeColor = "bg-slate-500 border-slate-300"
+              badgeBg = "bg-slate-500/10 text-slate-400 border-slate-500/20"
+            }
+
+            const isOpen = !!openSteps[idx]
+
+            return (
+              <div key={idx} className="relative group">
+                {/* Timeline node circle */}
+                <div
+                  className={`absolute -left-6 top-2.5 size-5 rounded-full border-2 ${nodeColor} flex items-center justify-center shadow-md z-10`}
+                >
+                  <div className="size-1.5 rounded-full bg-white" />
+                </div>
+
+                {/* Card Content */}
+                <div className="flex flex-col rounded-lg border bg-card/60 shadow-sm overflow-hidden transition-all">
+                  {/* Clickable Header */}
+                  <div
+                    onClick={() => toggleStep(idx)}
+                    className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/50 select-none transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {isOpen ? (
+                        <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                      )}
+                      <Badge variant="outline" className={`text-xs font-mono px-2 py-0.5 flex items-center gap-1.5 ${badgeBg}`}>
+                        <Icon className="size-3" />
+                        {title}
+                      </Badge>
+                    </div>
+
+                    {(step.total_tokens ?? 0) > 0 && (
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono bg-muted/60 px-2 py-0.5 rounded border">
+                        <Zap className="size-2.5 text-yellow-500" />
+                        <span>{step.prompt_tokens} in</span>
+                        <span className="text-muted-foreground/30">|</span>
+                        <span>{step.completion_tokens} out</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Collapsible Details */}
+                  {isOpen && (
+                    <div className="p-3 pt-0 border-t bg-muted/20 text-xs flex flex-col gap-2">
+                      {step.tool_calls && step.tool_calls.length > 0 ? (
+                        <div className="flex flex-col gap-1.5 mt-2">
+                          <span className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
+                            Tool Arguments
+                          </span>
+                          {step.tool_calls.map((tc, tcIdx) => (
+                            <div key={tcIdx} className="bg-background/80 rounded p-2.5 font-mono break-all border">
+                              <span className="font-semibold text-amber-500">{tc.name}</span>
+                              <div className="mt-1 text-muted-foreground whitespace-pre-wrap">{tc.arguments}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-2 text-sm whitespace-pre-wrap break-words font-mono bg-background/50 p-2.5 rounded border text-foreground/90">
+                          {step.content ?? "—"}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 

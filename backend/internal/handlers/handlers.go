@@ -1004,7 +1004,7 @@ func (h *Handler) GetEvaluationDetails(c echo.Context) error {
 	resultQuery := `
 		SELECT 
 			er.id, er.run_id, er.test_case_id, er.generated_output, er.score, 
-			er.is_passed, er.evaluator_reasoning, er.tools_called, er.created_at,
+			er.is_passed, er.evaluator_reasoning, er.tools_called, er.trace, er.created_at,
 			tc.input_prompt, tc.expected_output
 		FROM evaluation_results er 
 		JOIN test_cases tc ON er.test_case_id = tc.id 
