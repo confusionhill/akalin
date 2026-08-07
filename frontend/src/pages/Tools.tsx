@@ -23,6 +23,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { HighlightedTextarea } from "@/components/ui/highlighted-textarea"
+import { FormattedResult } from "@/components/ui/formatted-result"
 import {
   Select,
   SelectContent,
@@ -140,6 +142,21 @@ export function ToolsPage() {
     e.preventDefault()
     if (!form.name.trim() || !form.description.trim() || !form.result.trim()) {
       toast.error("Name, description, and mock result are required")
+      return
+    }
+
+    const matches = form.result.match(/\{\{([^{}]+)\}\}/g) || []
+    const paramNames = new Set(form.params.map(p => p.name.trim()).filter(Boolean))
+    const missingParams: string[] = []
+    matches.forEach(match => {
+      const varName = match.slice(2, -2).trim()
+      if (!paramNames.has(varName)) {
+        missingParams.push(match)
+      }
+    })
+
+    if (missingParams.length > 0) {
+      toast.error(`The following variables are not defined in the tool parameters: ${missingParams.join(", ")}`)
       return
     }
 
@@ -285,7 +302,7 @@ export function ToolsPage() {
                 </CardHeader>
                 <CardContent className="space-y-3 pt-0">
                   <div className="bg-muted rounded-md p-2 text-xs font-mono max-h-24 overflow-y-auto whitespace-pre-wrap">
-                    {tool.result}
+                    <FormattedResult result={tool.result} parameters={tool.parameters} />
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
                     <span>Updated {formatRelativeTime(tool.updated_at)}</span>
@@ -448,13 +465,14 @@ export function ToolsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Textarea
+              <HighlightedTextarea
                 id="result"
                 rows={4}
                 className="font-mono text-xs"
                 placeholder={form.format === "json" ? '{"status": "success", "data": 42}' : "Result text to return when tool is executed..."}
                 value={form.result}
                 onChange={(e) => setForm({ ...form, result: e.target.value })}
+                allowedVariables={form.params.map(p => p.name.trim()).filter(Boolean)}
               />
               <p className="text-[11px] text-muted-foreground mt-1">
                 Tip: You can use <code className="bg-muted px-1 py-0.5 rounded">{"{{argName}}"}</code> to dynamically interpolate tool arguments provided by the LLM into this mock result.

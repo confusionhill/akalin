@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
+import { FormattedResult } from "@/components/ui/formatted-result"
 
 export function ProjectToolsTab({ projectId }: { projectId: string }) {
   const [globalTools, setGlobalTools] = useState<Tool[] | null>(null)
@@ -138,7 +139,7 @@ export function ProjectToolsTab({ projectId }: { projectId: string }) {
               </CardHeader>
               <CardContent className="p-4 pt-2">
                 <div className="bg-muted/80 rounded p-2 text-xs font-mono truncate">
-                  Result: {tool.result}
+                  Result: <FormattedResult result={tool.result} parameters={tool.parameters} />
                 </div>
               </CardContent>
             </Card>
