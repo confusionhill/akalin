@@ -236,15 +236,25 @@ func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemP
 
 	var toolDefs []ToolDefinition
 	for _, t := range availableTools {
+		var params map[string]interface{}
+		if len(t.Parameters) > 0 {
+			if err := json.Unmarshal(t.Parameters, &params); err != nil {
+				log.Printf("[llm-client] warning: failed to parse parameters for tool %s: %v", t.Name, err)
+			}
+		}
+		if params == nil {
+			params = map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			}
+		}
+
 		toolDefs = append(toolDefs, ToolDefinition{
 			Type: "function",
 			Function: ToolFunction{
 				Name:        t.Name,
 				Description: t.Description,
-				Parameters: map[string]interface{}{
-					"type":       "object",
-					"properties": map[string]interface{}{},
-				},
+				Parameters:  params,
 			},
 		})
 	}
@@ -299,6 +309,17 @@ func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemP
 			for _, t := range availableTools {
 				if t.Name == toolName {
 					mockResult = t.Result
+					
+					var args map[string]interface{}
+					if tc.Function.Arguments != "" {
+						if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil {
+							for k, v := range args {
+								strVal := fmt.Sprintf("%v", v)
+								mockResult = strings.ReplaceAll(mockResult, "{{"+k+"}}", strVal)
+								mockResult = strings.ReplaceAll(mockResult, "{{ "+k+" }}", strVal)
+							}
+						}
+					}
 					break
 				}
 			}

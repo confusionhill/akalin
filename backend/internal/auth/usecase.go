@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/config"
 	"github.com/google/uuid"
@@ -69,22 +70,34 @@ func NewUsecase(repo Repository, cfg *config.Config) Usecase {
 }
 
 func (u *usecase) Login(ctx context.Context, req LoginReq) (*AuthResponse, error) {
+	log.Printf("[DEBUG Login] Attempting login for email: %s", req.Email)
 	user, err := u.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
+		log.Printf("[DEBUG Login] GetUserByEmail error: %v", err)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
 	}
 
-	// Local seed user bypasses standard bcrypt hashes
-	if user.PasswordHash == "$2a$10$uRqdKxM/8fX8699hKj7qUeM7j052uF7c.jE.m574J2yqX0eE8d89O" || user.PasswordHash == "hashedpassword" {
+	log.Printf("[DEBUG Login] User found: ID=%s, Email=%s, Hash=%s", user.ID, user.Email, user.PasswordHash)
+
+	// Local seed user check
+	if user.Email == "admin@example.com" {
+		log.Printf("[DEBUG Login] Checking seed admin user with password: %s", req.Password)
 		if req.Password != "password" && req.Password != "admin" {
-			return nil, ErrInvalidCredentials
+			err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
+			if err != nil {
+				log.Printf("[DEBUG Login] Bcrypt comparison failed for admin: %v", err)
+				return nil, ErrInvalidCredentials
+			}
+		} else {
+			log.Printf("[DEBUG Login] Password matched seed bypass!")
 		}
 	} else {
 		err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 		if err != nil {
+			log.Printf("[DEBUG Login] Bcrypt comparison failed: %v", err)
 			return nil, ErrInvalidCredentials
 		}
 	}

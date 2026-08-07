@@ -14,6 +14,13 @@ type Usecase interface {
 	CancelEvaluation(ctx context.Context, runID, projectID uuid.UUID) (bool, error)
 	GetEvaluationDetails(ctx context.Context, runID, projectID uuid.UUID) (*RunDetailsResponse, error)
 	DeleteEvaluation(ctx context.Context, runID, projectID uuid.UUID) error
+
+	// Evaluation Config Presets
+	GetConfigs(ctx context.Context, projectID uuid.UUID) ([]models.EvaluationConfig, error)
+	GetConfigByID(ctx context.Context, configID, projectID uuid.UUID) (*models.EvaluationConfig, error)
+	CreateConfig(ctx context.Context, projectID, userID uuid.UUID, req models.EvaluationConfig) (*models.EvaluationConfig, error)
+	UpdateConfig(ctx context.Context, configID, projectID, userID uuid.UUID, req models.EvaluationConfig) (*models.EvaluationConfig, error)
+	DeleteConfig(ctx context.Context, configID, projectID uuid.UUID) error
 }
 
 type usecase struct {
@@ -49,4 +56,24 @@ func (u *usecase) GetEvaluationDetails(ctx context.Context, runID, projectID uui
 
 func (u *usecase) DeleteEvaluation(ctx context.Context, runID, projectID uuid.UUID) error {
 	return u.repo.DeleteEvaluation(ctx, runID, projectID)
+}
+
+func (u *usecase) GetConfigs(ctx context.Context, projectID uuid.UUID) ([]models.EvaluationConfig, error) {
+	return u.repo.GetConfigs(ctx, projectID)
+}
+
+func (u *usecase) GetConfigByID(ctx context.Context, configID, projectID uuid.UUID) (*models.EvaluationConfig, error) {
+	return u.repo.GetConfigByID(ctx, configID, projectID)
+}
+
+func (u *usecase) CreateConfig(ctx context.Context, projectID, userID uuid.UUID, req models.EvaluationConfig) (*models.EvaluationConfig, error) {
+	return u.repo.CreateConfig(ctx, req, projectID, userID)
+}
+
+func (u *usecase) UpdateConfig(ctx context.Context, configID, projectID, userID uuid.UUID, req models.EvaluationConfig) (*models.EvaluationConfig, error) {
+	return u.repo.UpdateConfig(ctx, req, configID, projectID, userID)
+}
+
+func (u *usecase) DeleteConfig(ctx context.Context, configID, projectID uuid.UUID) error {
+	return u.repo.DeleteConfig(ctx, configID, projectID)
 }

@@ -138,3 +138,99 @@ func (h *Handler) DeleteEvaluation(c echo.Context) error {
 
 	return c.NoContent(http.StatusNoContent)
 }
+
+func (h *Handler) GetConfigs(c echo.Context) error {
+	_, _, _, err := h.authHandler.GetAuth(c)
+	if err != nil {
+		return err
+	}
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid project ID")
+	}
+
+	configs, err := h.usecase.GetConfigs(c.Request().Context(), projectID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, configs)
+}
+
+func (h *Handler) CreateConfig(c echo.Context) error {
+	_, userID, _, err := h.authHandler.GetAuth(c)
+	if err != nil {
+		return err
+	}
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid project ID")
+	}
+
+	req := new(models.EvaluationConfig)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+
+	cfg, err := h.usecase.CreateConfig(c.Request().Context(), projectID, userID, *req)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusCreated, cfg)
+}
+
+func (h *Handler) UpdateConfig(c echo.Context) error {
+	_, userID, _, err := h.authHandler.GetAuth(c)
+	if err != nil {
+		return err
+	}
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid project ID")
+	}
+	configID, err := uuid.Parse(c.Param("config_id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid config ID")
+	}
+
+	req := new(models.EvaluationConfig)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+
+	cfg, err := h.usecase.UpdateConfig(c.Request().Context(), configID, projectID, userID, *req)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, cfg)
+}
+
+func (h *Handler) DeleteConfig(c echo.Context) error {
+	_, _, _, err := h.authHandler.GetAuth(c)
+	if err != nil {
+		return err
+	}
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid project ID")
+	}
+	configID, err := uuid.Parse(c.Param("config_id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid config ID")
+	}
+
+	err = h.usecase.DeleteConfig(c.Request().Context(), configID, projectID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}

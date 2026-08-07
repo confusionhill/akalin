@@ -75,6 +75,7 @@ export interface Tool {
   tenant_id: string
   name: string
   description: string
+  parameters?: any
   result: string
   created_by: string
   updated_by: string
@@ -87,6 +88,7 @@ export type RunStatus = "pending" | "running" | "completed" | "failed"
 export interface EvaluationRun {
   id: string
   project_id: string
+  config_id?: string | null
   system_prompt_id: string
   evaluation_prompt_id: string
   target_provider_id: string
@@ -169,10 +171,12 @@ export interface CreateProviderInput {
 export interface CreateToolInput {
   name: string
   description: string
+  parameters?: any
   result: string
 }
 
 export interface CreateEvaluationInput {
+  config_id?: string
   system_prompt_id: string
   evaluation_prompt_id: string
   target_provider_id: string
@@ -255,4 +259,34 @@ export interface TestLLMModelInput {
 export interface TestLLMModelResponse {
   success: boolean
   error?: string
+}
+
+export interface EvaluationConfig {
+  id: string
+  project_id: string
+  name: string
+  description: string
+  system_prompt_id: string
+  evaluation_prompt_id: string
+  target_provider_id: string
+  target_model: string
+  evaluator_provider_id: string
+  evaluator_model: string
+  pass_threshold: number
+  created_by: string
+  updated_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateEvaluationConfigInput {
+  name: string
+  description?: string
+  system_prompt_id: string
+  evaluation_prompt_id: string
+  target_provider_id: string
+  target_model: string
+  evaluator_provider_id: string
+  evaluator_model: string
+  pass_threshold: number
 }

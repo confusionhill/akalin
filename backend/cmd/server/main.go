@@ -144,6 +144,12 @@ func main() {
 	projectGroup.POST("/:id/evaluations/:run_id/cancel", evalHandler.CancelEvaluation)
 	projectGroup.DELETE("/:id/evaluations/:run_id", evalHandler.DeleteEvaluation)
 
+	// Evaluation Config Presets
+	projectGroup.GET("/:id/configs", evalHandler.GetConfigs)
+	projectGroup.POST("/:id/configs", evalHandler.CreateConfig)
+	projectGroup.PUT("/:id/configs/:config_id", evalHandler.UpdateConfig)
+	projectGroup.DELETE("/:id/configs/:config_id", evalHandler.DeleteConfig)
+
 	// Rubric Auto-Refinement
 	projectGroup.POST("/:id/evaluations/:run_id/refine-rubric", rubricHandler.RefineEvaluationPrompt)
 	projectGroup.POST("/:id/calibrate-rubric", rubricHandler.CalibrateEvaluationPrompt)

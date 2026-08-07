@@ -39,13 +39,16 @@ func (r *repository) GetTools(ctx context.Context, tenantID uuid.UUID) ([]models
 }
 
 func (r *repository) CreateTool(ctx context.Context, tenantID, userID uuid.UUID, req models.Tool) (*models.Tool, error) {
+	if len(req.Parameters) == 0 {
+		req.Parameters = []byte("{}")
+	}
 	query := `
-		INSERT INTO tools (tenant_id, name, description, result, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, $5, $5)
+		INSERT INTO tools (tenant_id, name, description, parameters, result, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $6)
 		RETURNING *
 	`
 	var tool models.Tool
-	err := r.db.GetContext(ctx, &tool, query, tenantID, req.Name, req.Description, req.Result, userID)
+	err := r.db.GetContext(ctx, &tool, query, tenantID, req.Name, req.Description, req.Parameters, req.Result, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -53,14 +56,17 @@ func (r *repository) CreateTool(ctx context.Context, tenantID, userID uuid.UUID,
 }
 
 func (r *repository) UpdateTool(ctx context.Context, toolID, tenantID, userID uuid.UUID, req models.Tool) (*models.Tool, error) {
+	if len(req.Parameters) == 0 {
+		req.Parameters = []byte("{}")
+	}
 	query := `
 		UPDATE tools
-		SET name = $1, description = $2, result = $3, updated_by = $4, updated_at = $5
-		WHERE id = $6 AND tenant_id = $7
+		SET name = $1, description = $2, parameters = $3, result = $4, updated_by = $5, updated_at = $6
+		WHERE id = $7 AND tenant_id = $8
 		RETURNING *
 	`
 	var tool models.Tool
-	err := r.db.GetContext(ctx, &tool, query, req.Name, req.Description, req.Result, userID, time.Now(), toolID, tenantID)
+	err := r.db.GetContext(ctx, &tool, query, req.Name, req.Description, req.Parameters, req.Result, userID, time.Now(), toolID, tenantID)
 	if err != nil {
 		return nil, err
 	}

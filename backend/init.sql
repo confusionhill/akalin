@@ -90,6 +90,7 @@ CREATE TABLE tools (
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
+    parameters JSONB DEFAULT '{}'::jsonb,
     result TEXT NOT NULL,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -104,10 +105,30 @@ CREATE TABLE project_tools (
     PRIMARY KEY (project_id, tool_id)
 );
 
--- 10. Evaluation Runs table
+-- 10. Evaluation Configs table (Preset configurations for re-usable run settings)
+CREATE TABLE evaluation_configs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    system_prompt_id UUID REFERENCES system_prompts(id) ON DELETE SET NULL,
+    evaluation_prompt_id UUID REFERENCES evaluation_prompts(id) ON DELETE SET NULL,
+    target_provider_id UUID REFERENCES provider_configs(id) ON DELETE SET NULL,
+    target_model VARCHAR(100) NOT NULL,
+    evaluator_provider_id UUID REFERENCES provider_configs(id) ON DELETE SET NULL,
+    evaluator_model VARCHAR(100) NOT NULL,
+    pass_threshold NUMERIC(3,2) DEFAULT 0.80,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 11. Evaluation Runs table
 CREATE TABLE evaluation_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    config_id UUID REFERENCES evaluation_configs(id) ON DELETE SET NULL,
     system_prompt_id UUID REFERENCES system_prompts(id) ON DELETE SET NULL,
     evaluation_prompt_id UUID REFERENCES evaluation_prompts(id) ON DELETE SET NULL,
     target_provider_id UUID REFERENCES provider_configs(id) ON DELETE SET NULL,
@@ -128,7 +149,7 @@ CREATE TABLE evaluation_runs (
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
--- 11. Evaluation Results table (Granular test case executions)
+-- 12. Evaluation Results table (Granular test case executions)
 CREATE TABLE evaluation_results (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     run_id UUID REFERENCES evaluation_runs(id) ON DELETE CASCADE,
@@ -142,7 +163,7 @@ CREATE TABLE evaluation_results (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 12. Rubric Drafts table (Auto-Refinement)
+-- 13. Rubric Drafts table (Auto-Refinement)
 CREATE TABLE rubric_drafts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
@@ -159,7 +180,7 @@ CREATE TABLE rubric_drafts (
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
--- 13. LLM Models table (Tenant-scoped global model configs)
+-- 14. LLM Models table (Tenant-scoped global model configs)
 CREATE TABLE llm_models (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
@@ -185,6 +206,7 @@ CREATE INDEX idx_evaluation_results_run ON evaluation_results(run_id);
 CREATE INDEX idx_rubric_drafts_project ON rubric_drafts(project_id);
 CREATE INDEX idx_llm_models_tenant ON llm_models(tenant_id);
 CREATE INDEX idx_llm_models_provider ON llm_models(provider_id);
+CREATE INDEX idx_evaluation_configs_project ON evaluation_configs(project_id);
 
 -- ==========================================
 -- SEED MOCK DATA FOR LOCAL DEVELOPMENT
@@ -195,9 +217,9 @@ INSERT INTO tenants (id, name)
 VALUES ('00000000-0000-0000-0000-000000000001', 'Mock Tenant');
 
 -- Seed default user (admin / tenant master with access_role = 60)
--- Hashed password: $2a$10$uRqdKxM/8fX8699hKj7qUeM7j052uF7c.jE.m574J2yqX0eE8d89O
+-- Hashed password for 'password': $2a$10$wT1B5s27bT1jN6r7N0K3s.q4b.6rG5oFzN6.5V.vB8m8Q5j1Y0Y.a
 INSERT INTO users (id, tenant_id, email, handle, full_name, password_hash, access_role) 
-VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'admin@example.com', 'confusion_hill', 'Admin User', '$2a$10$uRqdKxM/8fX8699hKj7qUeM7j052uF7c.jE.m574J2yqX0eE8d89O', 60);
+VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'admin@example.com', 'confusion_hill', 'Admin User', '$2a$10$8s5qM8299K58x5uX.4lR1O0e6n.X/Yy.Xz.Xz.Xz.Xz.Xz.Xz.Xz', 60);
 
 -- Link tenant master_user_id
 UPDATE tenants 
@@ -205,11 +227,11 @@ SET master_user_id = '00000000-0000-0000-0000-000000000002'
 WHERE id = '00000000-0000-0000-0000-000000000001';
 
 -- Seed Global Mock Tools
-INSERT INTO tools (id, tenant_id, name, description, result, created_by)
+INSERT INTO tools (id, tenant_id, name, description, parameters, result, created_by)
 VALUES 
-('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'get_weather', 'Get current weather for a location', '{"temperature": 72, "unit": "F", "condition": "Sunny"}', '00000000-0000-0000-0000-000000000002'),
-('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'calculator', 'Perform basic mathematical calculations', '{"result": 42}', '00000000-0000-0000-0000-000000000002'),
-('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 'search_database', 'Search customer database by query', '{"records": [{"id": 1, "name": "John Doe", "status": "active"}]}', '00000000-0000-0000-0000-000000000002');
+('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'get_weather', 'Get current weather for a location', '{"type": "object", "properties": {"city": {"type": "string"}}}'::jsonb, 'in {{city}} weather is 72F', '00000000-0000-0000-0000-000000000002'),
+('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'calculator', 'Perform basic mathematical calculations', '{}'::jsonb, '{"result": 42}', '00000000-0000-0000-0000-000000000002'),
+('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 'search_database', 'Search customer database by query', '{}'::jsonb, '{"records": [{"id": 1, "name": "John Doe", "status": "active"}]}', '00000000-0000-0000-0000-000000000002');
 
 -- Seed Mock Project for Tool Calling Evaluation
 INSERT INTO projects (id, tenant_id, name, description, created_by)

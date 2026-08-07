@@ -124,6 +124,17 @@ export const evaluationsApi = {
     http.post<void>(`/projects/${projectId}/evaluations/${runId}/cancel`, {}),
 }
 
+export const evaluationConfigsApi = {
+  list: (projectId: string) =>
+    http.get<import("./types").EvaluationConfig[]>(`/projects/${projectId}/configs`),
+  create: (projectId: string, body: import("./types").CreateEvaluationConfigInput) =>
+    http.post<import("./types").EvaluationConfig>(`/projects/${projectId}/configs`, body),
+  update: (projectId: string, configId: string, body: import("./types").CreateEvaluationConfigInput) =>
+    http.put<import("./types").EvaluationConfig>(`/projects/${projectId}/configs/${configId}`, body),
+  remove: (projectId: string, configId: string) =>
+    http.del<void>(`/projects/${projectId}/configs/${configId}`),
+}
+
 export const rubricDraftsApi = {
   // Mode A: from completed run
   refineFromRun: (projectId: string, runId: string, basePromptId?: string, customInstructions?: string) =>

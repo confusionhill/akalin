@@ -154,15 +154,16 @@ func (t *TraceArray) Scan(value interface{}) error {
 }
 
 type Tool struct {
-	ID          uuid.UUID `db:"id" json:"id"`
-	TenantID    uuid.UUID `db:"tenant_id" json:"tenant_id"`
-	Name        string    `db:"name" json:"name" validate:"required"`
-	Description string    `db:"description" json:"description" validate:"required"`
-	Result      string    `db:"result" json:"result" validate:"required"`
-	CreatedBy   uuid.UUID `db:"created_by" json:"created_by"`
-	UpdatedBy   uuid.UUID `db:"updated_by" json:"updated_by"`
-	CreatedAt   time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
+	ID          uuid.UUID       `db:"id" json:"id"`
+	TenantID    uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	Name        string          `db:"name" json:"name" validate:"required"`
+	Description string          `db:"description" json:"description" validate:"required"`
+	Parameters  json.RawMessage `db:"parameters" json:"parameters"`
+	Result      string          `db:"result" json:"result" validate:"required"`
+	CreatedBy   uuid.UUID       `db:"created_by" json:"created_by"`
+	UpdatedBy   uuid.UUID       `db:"updated_by" json:"updated_by"`
+	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 type ProjectTool struct {
@@ -186,6 +187,7 @@ type ProviderConfig struct {
 type EvaluationRun struct {
 	ID                     uuid.UUID   `db:"id" json:"id"`
 	ProjectID              uuid.UUID   `db:"project_id" json:"project_id"`
+	ConfigID               *uuid.UUID  `db:"config_id" json:"config_id"`
 	SystemPromptID         uuid.UUID   `db:"system_prompt_id" json:"system_prompt_id" validate:"required"`
 	EvaluationPromptID     uuid.UUID   `db:"evaluation_prompt_id" json:"evaluation_prompt_id" validate:"required"`
 	TargetProviderID       uuid.UUID   `db:"target_provider_id" json:"target_provider_id" validate:"required"`
@@ -247,4 +249,23 @@ type LLMModel struct {
 	UpdatedBy  uuid.UUID `db:"updated_by" json:"updated_by"`
 	CreatedAt  time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt  time.Time `db:"updated_at" json:"updated_at"`
+}
+
+// EvaluationConfig represents a saved evaluation pipeline preset configuration
+type EvaluationConfig struct {
+	ID                  uuid.UUID `db:"id" json:"id"`
+	ProjectID           uuid.UUID `db:"project_id" json:"project_id"`
+	Name                string    `db:"name" json:"name" validate:"required"`
+	Description         string    `db:"description" json:"description"`
+	SystemPromptID      uuid.UUID `db:"system_prompt_id" json:"system_prompt_id" validate:"required"`
+	EvaluationPromptID  uuid.UUID `db:"evaluation_prompt_id" json:"evaluation_prompt_id" validate:"required"`
+	TargetProviderID    uuid.UUID `db:"target_provider_id" json:"target_provider_id" validate:"required"`
+	TargetModel         string    `db:"target_model" json:"target_model" validate:"required"`
+	EvaluatorProviderID uuid.UUID `db:"evaluator_provider_id" json:"evaluator_provider_id" validate:"required"`
+	EvaluatorModel      string    `db:"evaluator_model" json:"evaluator_model" validate:"required"`
+	PassThreshold       float64   `db:"pass_threshold" json:"pass_threshold" validate:"required,gte=0,lte=1"`
+	CreatedBy           uuid.UUID `db:"created_by" json:"created_by"`
+	UpdatedBy           uuid.UUID `db:"updated_by" json:"updated_by"`
+	CreatedAt           time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt           time.Time `db:"updated_at" json:"updated_at"`
 }

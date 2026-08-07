@@ -37,6 +37,13 @@ type Repository interface {
 	CancelEvaluation(ctx context.Context, runID, projectID uuid.UUID) (bool, error)
 	GetEvaluationDetails(ctx context.Context, runID, projectID uuid.UUID) (*RunDetailsResponse, error)
 	DeleteEvaluation(ctx context.Context, runID, projectID uuid.UUID) error
+
+	// Evaluation Config Presets
+	GetConfigs(ctx context.Context, projectID uuid.UUID) ([]models.EvaluationConfig, error)
+	GetConfigByID(ctx context.Context, configID, projectID uuid.UUID) (*models.EvaluationConfig, error)
+	CreateConfig(ctx context.Context, req models.EvaluationConfig, projectID, userID uuid.UUID) (*models.EvaluationConfig, error)
+	UpdateConfig(ctx context.Context, req models.EvaluationConfig, configID, projectID, userID uuid.UUID) (*models.EvaluationConfig, error)
+	DeleteConfig(ctx context.Context, configID, projectID uuid.UUID) error
 }
 
 type repository struct {
@@ -62,16 +69,16 @@ func (r *repository) GetEvaluations(ctx context.Context, projectID uuid.UUID) ([
 func (r *repository) CreateEvaluation(ctx context.Context, req models.EvaluationRun, projectID, userID uuid.UUID) (*models.EvaluationRun, error) {
 	query := `
 		INSERT INTO evaluation_runs (
-			project_id, system_prompt_id, evaluation_prompt_id,
+			project_id, config_id, system_prompt_id, evaluation_prompt_id,
 			target_provider_id, target_model, evaluator_provider_id,
 			evaluator_model, model_used, status, pass_threshold, run_by, blacklisted_test_case_ids, blacklisted_tool_ids, enable_memory
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $5, 'pending', $8, $9, $10, $11, $12)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $6, 'pending', $9, $10, $11, $12, $13)
 		RETURNING *
 	`
 	var run models.EvaluationRun
 	err := r.db.GetContext(ctx, &run, query,
-		projectID, req.SystemPromptID, req.EvaluationPromptID,
+		projectID, req.ConfigID, req.SystemPromptID, req.EvaluationPromptID,
 		req.TargetProviderID, req.TargetModel, req.EvaluatorProviderID,
 		req.EvaluatorModel, req.PassThreshold, userID, req.BlacklistedTestCaseIDs, req.BlacklistedToolIDs, req.EnableMemory,
 	)
@@ -133,5 +140,74 @@ func (r *repository) GetEvaluationDetails(ctx context.Context, runID, projectID 
 
 func (r *repository) DeleteEvaluation(ctx context.Context, runID, projectID uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM evaluation_runs WHERE id = $1 AND project_id = $2", runID, projectID)
+	return err
+}
+
+func (r *repository) GetConfigs(ctx context.Context, projectID uuid.UUID) ([]models.EvaluationConfig, error) {
+	var configs []models.EvaluationConfig
+	err := r.db.SelectContext(ctx, &configs, "SELECT * FROM evaluation_configs WHERE project_id = $1 ORDER BY updated_at DESC", projectID)
+	if err != nil {
+		return nil, err
+	}
+	if configs == nil {
+		configs = []models.EvaluationConfig{}
+	}
+	return configs, nil
+}
+
+func (r *repository) GetConfigByID(ctx context.Context, configID, projectID uuid.UUID) (*models.EvaluationConfig, error) {
+	var cfg models.EvaluationConfig
+	err := r.db.GetContext(ctx, &cfg, "SELECT * FROM evaluation_configs WHERE id = $1 AND project_id = $2", configID, projectID)
+	if err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func (r *repository) CreateConfig(ctx context.Context, req models.EvaluationConfig, projectID, userID uuid.UUID) (*models.EvaluationConfig, error) {
+	query := `
+		INSERT INTO evaluation_configs (
+			project_id, name, description, system_prompt_id, evaluation_prompt_id,
+			target_provider_id, target_model, evaluator_provider_id, evaluator_model,
+			pass_threshold, created_by, updated_by
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+		RETURNING *
+	`
+	var cfg models.EvaluationConfig
+	err := r.db.GetContext(ctx, &cfg, query,
+		projectID, req.Name, req.Description, req.SystemPromptID, req.EvaluationPromptID,
+		req.TargetProviderID, req.TargetModel, req.EvaluatorProviderID, req.EvaluatorModel,
+		req.PassThreshold, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func (r *repository) UpdateConfig(ctx context.Context, req models.EvaluationConfig, configID, projectID, userID uuid.UUID) (*models.EvaluationConfig, error) {
+	query := `
+		UPDATE evaluation_configs
+		SET name = $1, description = $2, system_prompt_id = $3, evaluation_prompt_id = $4,
+		    target_provider_id = $5, target_model = $6, evaluator_provider_id = $7, evaluator_model = $8,
+		    pass_threshold = $9, updated_by = $10, updated_at = NOW()
+		WHERE id = $11 AND project_id = $12
+		RETURNING *
+	`
+	var cfg models.EvaluationConfig
+	err := r.db.GetContext(ctx, &cfg, query,
+		req.Name, req.Description, req.SystemPromptID, req.EvaluationPromptID,
+		req.TargetProviderID, req.TargetModel, req.EvaluatorProviderID, req.EvaluatorModel,
+		req.PassThreshold, userID, configID, projectID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func (r *repository) DeleteConfig(ctx context.Context, configID, projectID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM evaluation_configs WHERE id = $1 AND project_id = $2", configID, projectID)
 	return err
 }

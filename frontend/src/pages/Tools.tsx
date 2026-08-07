@@ -31,13 +31,23 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Checkbox } from "@/components/ui/checkbox"
 import { formatRelativeTime } from "@/lib/utils"
+
+interface ParamRow {
+  id: string
+  name: string
+  type: string
+  description: string
+  required: boolean
+}
 
 interface FormState {
   name: string
   description: string
   format: "json" | "text"
   result: string
+  params: ParamRow[]
 }
 
 const empty: FormState = {
@@ -45,6 +55,7 @@ const empty: FormState = {
   description: "",
   format: "text",
   result: "",
+  params: []
 }
 
 export function ToolsPage() {
@@ -87,11 +98,25 @@ export function ToolsPage() {
       isJson = false
     }
 
+    const params: ParamRow[] = []
+    if (t.parameters && t.parameters.properties) {
+      Object.entries(t.parameters.properties).forEach(([key, val]: [string, any]) => {
+        params.push({
+          id: Math.random().toString(36).substring(7),
+          name: key,
+          type: val.type || "string",
+          description: val.description || "",
+          required: Array.isArray(t.parameters.required) && t.parameters.required.includes(key),
+        })
+      })
+    }
+
     setForm({
       name: t.name,
       description: t.description,
       format: isJson ? "json" : "text",
       result: t.result,
+      params,
     })
     setOpen(true)
   }
@@ -127,12 +152,29 @@ export function ToolsPage() {
       }
     }
 
+    const parameters = {
+      type: "object",
+      properties: {} as Record<string, any>,
+      required: [] as string[]
+    }
+    form.params.forEach(p => {
+      if (!p.name.trim()) return
+      parameters.properties[p.name] = {
+        type: p.type,
+        description: p.description
+      }
+      if (p.required) {
+        parameters.required.push(p.name)
+      }
+    })
+
     setSaving(true)
     try {
       if (editing) {
         await toolsApi.update(editing.id, {
           name: form.name,
           description: form.description,
+          parameters,
           result: form.result,
         })
         toast.success("Tool updated successfully")
@@ -140,6 +182,7 @@ export function ToolsPage() {
         await toolsApi.create({
           name: form.name,
           description: form.description,
+          parameters,
           result: form.result,
         })
         toast.success("Tool created successfully")
@@ -293,7 +336,106 @@ export function ToolsPage() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 pt-2 border-t mt-2">
+              <div className="flex items-center justify-between">
+                <Label>Parameters (Arguments)</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 text-xs"
+                  onClick={() => setForm(prev => ({ 
+                    ...prev, 
+                    params: [...prev.params, { id: Math.random().toString(36).substring(7), name: "", type: "string", description: "", required: false }] 
+                  }))}
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add Row
+                </Button>
+              </div>
+              
+              {form.params.length > 0 ? (
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {form.params.map((p, idx) => (
+                    <div key={p.id} className="flex gap-2 items-start bg-muted/50 p-2 rounded border border-border/50">
+                      <div className="space-y-1 flex-[2]">
+                        <Input 
+                          placeholder="Name (e.g. city)" 
+                          className="h-8 text-xs bg-background"
+                          value={p.name}
+                          onChange={(e) => {
+                            const newParams = [...form.params]
+                            newParams[idx].name = e.target.value
+                            setForm({ ...form, params: newParams })
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1 w-[80px]">
+                        <Select 
+                          value={p.type} 
+                          onValueChange={(val) => {
+                            const newParams = [...form.params]
+                            newParams[idx].type = val
+                            setForm({ ...form, params: newParams })
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-background px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="string">String</SelectItem>
+                            <SelectItem value="number">Number</SelectItem>
+                            <SelectItem value="boolean">Bool</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1 flex-[3]">
+                        <Input 
+                          placeholder="Description..." 
+                          className="h-8 text-xs bg-background"
+                          value={p.description}
+                          onChange={(e) => {
+                            const newParams = [...form.params]
+                            newParams[idx].description = e.target.value
+                            setForm({ ...form, params: newParams })
+                          }}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1 items-center justify-center pt-1">
+                        <Checkbox 
+                          checked={p.required}
+                          onCheckedChange={(checked) => {
+                            const newParams = [...form.params]
+                            newParams[idx].required = checked as boolean
+                            setForm({ ...form, params: newParams })
+                          }}
+                        />
+                        <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold leading-none">Req</span>
+                      </div>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-destructive shrink-0 -mr-1"
+                        onClick={() => {
+                          setForm({
+                            ...form,
+                            params: form.params.filter((_, i) => i !== idx)
+                          })
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground bg-muted p-2 rounded text-center">
+                  No parameters defined. The tool will not receive any arguments.
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-2 border-t mt-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="result">Mock Result Output</Label>
                 <Select value={form.format} onValueChange={(v: "json" | "text") => handleFormatChange(v)}>
@@ -314,6 +456,9 @@ export function ToolsPage() {
                 value={form.result}
                 onChange={(e) => setForm({ ...form, result: e.target.value })}
               />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Tip: You can use <code className="bg-muted px-1 py-0.5 rounded">{"{{argName}}"}</code> to dynamically interpolate tool arguments provided by the LLM into this mock result.
+              </p>
             </div>
 
             <DialogFooter>
