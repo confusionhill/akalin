@@ -1,0 +1,47 @@
+---
+import { type CollectionEntry, getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import Header from '../../components/Header.astro';
+
+export async function getStaticPaths() {
+	const usecases = await getCollection('usecases');
+	return usecases.map((item) => ({
+		params: { slug: item.id },
+		props: item,
+	}));
+}
+type Props = CollectionEntry<'usecases'>;
+
+const usecase = Astro.props;
+const { Content } = await render(usecase);
+---
+
+<Layout title={`${usecase.data.title} | Akalin Use Cases`} description={usecase.data.description}>
+	<Header />
+	<main class="container mx-auto px-4 md:px-8 py-16 max-w-3xl min-h-[calc(100vh-64px)]">
+		<article class="prose prose-lg dark:prose-invert prose-headings:font-bold prose-a:text-primary">
+			<header class="mb-10 not-prose border-b pb-8">
+				{usecase.data.badge && (
+					<span class="inline-block px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-mono text-primary font-semibold mb-4">
+						{usecase.data.badge}
+					</span>
+				)}
+				{usecase.data.heroImage && (
+					<div class="mb-8 overflow-hidden rounded-xl border shadow-lg">
+						<img src={usecase.data.heroImage} alt={usecase.data.title} class="w-full h-auto object-cover max-h-[400px]" />
+					</div>
+				)}
+				<h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight">{usecase.data.title}</h1>
+				<p class="text-sm font-mono text-muted-foreground">
+					{usecase.data.pubDate.toLocaleDateString('en-us', {
+						year: 'numeric',
+						month: 'long',
+						day: 'numeric',
+					})}
+				</p>
+			</header>
+
+			<Content />
+		</article>
+	</main>
+</Layout>
