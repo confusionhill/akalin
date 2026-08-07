@@ -19,14 +19,38 @@ type Tenant struct {
 
 type User struct {
 	ID           uuid.UUID `db:"id" json:"id"`
-	TenantID     uuid.UUID `db:"tenant_id" json:"tenant_id"`
 	Email        string    `db:"email" json:"email"`
 	Handle       string    `db:"handle" json:"handle"`
 	FullName     string    `db:"full_name" json:"full_name"`
 	PasswordHash string    `db:"password_hash" json:"-"`
-	AccessRole   int       `db:"access_role" json:"access_role"`
 	CreatedAt    time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+}
+
+type TenantUser struct {
+	TenantID   uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	UserID     uuid.UUID `db:"user_id" json:"user_id"`
+	AccessRole int       `db:"access_role" json:"access_role"`
+	JoinedAt   time.Time `db:"joined_at" json:"joined_at"`
+}
+
+type TenantUserResponse struct {
+	UserID     uuid.UUID `db:"user_id" json:"user_id"`
+	Email      string    `db:"email" json:"email"`
+	Handle     string    `db:"handle" json:"handle"`
+	FullName   string    `db:"full_name" json:"full_name"`
+	AccessRole int       `db:"access_role" json:"access_role"`
+	JoinedAt   time.Time `db:"joined_at" json:"joined_at"`
+}
+
+type TenantInvitation struct {
+	ID         uuid.UUID `db:"id" json:"id"`
+	TenantID   uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	Email      string    `db:"email" json:"email"`
+	AccessRole int       `db:"access_role" json:"access_role"`
+	Token      string    `db:"token" json:"token"`
+	ExpiresAt  time.Time `db:"expires_at" json:"expires_at"`
+	CreatedAt  time.Time `db:"created_at" json:"created_at"`
 }
 
 type Project struct {

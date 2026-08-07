@@ -1,5 +1,6 @@
 import { useAuth } from "@/context/auth-context"
-import { LogOut } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { LogOut, Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,9 +13,14 @@ import {
 
 export function UserMenu() {
   const { auth, logout } = useAuth()
+  const navigate = useNavigate()
 
   const handleLogout = () => {
     logout()
+  }
+
+  const handleSwitchWorkspace = () => {
+    navigate("/workspace")
   }
 
   return (
@@ -36,14 +42,19 @@ export function UserMenu() {
               {auth?.fullName ?? auth?.email ?? "User"}
             </p>
             <p className="text-xs leading-none text-muted-foreground">
-              {auth?.handle ? `@${auth.handle}` : "Tenant"}
+              {auth?.handle ? `@${auth.handle}` : "User"}
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+        <DropdownMenuItem onClick={handleSwitchWorkspace} className="cursor-pointer">
+          <Building2 className="mr-2 h-4 w-4 text-violet-500" />
+          <span>Switch Workspace</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
-          Sign out
+          <span>Sign out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

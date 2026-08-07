@@ -109,6 +109,15 @@ func main() {
 	authGroup.POST("/login", authHandler.Login)
 	authGroup.POST("/register", authHandler.Register)
 
+	// Multi-Tenant & Workspace Session Routes
+	authGroup.POST("/tenant", authHandler.CreateTenant, authMiddleware.RequireAuth)
+	authGroup.GET("/tenants", authHandler.GetMyTenants, authMiddleware.RequireAuth)
+	authGroup.POST("/tenant/switch", authHandler.SwitchTenant, authMiddleware.RequireAuth)
+	authGroup.GET("/tenant/users", authHandler.GetTenantUsers, authMiddleware.RequireAuth)
+	authGroup.DELETE("/tenant/users/:user_id", authHandler.RemoveTenantUser, authMiddleware.RequireAuth)
+	authGroup.POST("/tenant/invites", authHandler.CreateInvitation, authMiddleware.RequireAuth)
+	authGroup.POST("/tenant/join", authHandler.JoinTenant, authMiddleware.RequireAuth)
+
 	// User Settings
 	userGroup := api.Group("/users/me", authMiddleware.RequireAuth)
 	userGroup.PUT("/profile", authHandler.UpdateProfile)

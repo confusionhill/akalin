@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom"
-import { Bot, FlaskConical, KeyRound, LogOut, Settings, Wrench } from "lucide-react"
+import { Bot, FlaskConical, KeyRound, LogOut, Settings, Wrench, Building2 } from "lucide-react"
 
 import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
@@ -98,9 +98,16 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               <Settings className="size-4 mr-2" />
               Settings
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              navigate("/workspace")
+              if (onNavigate) onNavigate()
+            }}>
+              <Building2 className="size-4 mr-2 text-violet-500" />
+              Switch Workspace
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={handleLogout}>
-              <LogOut className="size-4" />
+              <LogOut className="size-4 mr-2" />
               Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>

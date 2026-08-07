@@ -1,9 +1,9 @@
-import { useState, type FormEvent } from "react"
-import { Loader2 } from "lucide-react"
+import { useState, useEffect, type FormEvent } from "react"
+import { Loader2, UserPlus, Shield, ShieldAlert, Trash2, Copy, Check, Ticket, User, Clock, Calendar } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAuth } from "@/context/auth-context"
-import { usersApi } from "@/api"
+import { usersApi, authApi } from "@/api"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -15,6 +15,33 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
+export interface WorkspaceMemberUI {
+  id: string
+  fullName: string
+  handle: string
+  email: string
+  role: string
+  accessRole: number
+  joinedAt: string
+}
 
 export function SettingsPage() {
   const { auth, updateAuth } = useAuth()
@@ -30,6 +57,54 @@ export function SettingsPage() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [savingPassword, setSavingPassword] = useState(false)
+
+  // Workspace Members State
+  const [members, setMembers] = useState<WorkspaceMemberUI[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
+
+  // Invite Modal State
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [expirationChoice, setExpirationChoice] = useState<string>("1-day")
+  const [customDateTime, setCustomDateTime] = useState<string>("")
+  const [generatingInvite, setGeneratingInvite] = useState(false)
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null)
+  const [tokenExpiryDate, setTokenExpiryDate] = useState<string | null>(null)
+  const [copiedToken, setCopiedToken] = useState(false)
+
+  const currentUserRole = auth?.accessRole ?? 60
+
+  // Fetch real workspace members from API
+  useEffect(() => {
+    async function fetchMembers() {
+      if (!auth?.tenantId) return
+      setLoadingMembers(true)
+      try {
+        const res = await authApi.getTenantUsers()
+        if (res && res.length > 0) {
+          setMembers(
+            res.map((m) => ({
+              id: m.user_id,
+              fullName: m.full_name,
+              handle: m.handle,
+              email: m.email,
+              role: m.accessRole >= 100 ? "Owner" : m.accessRole >= 60 ? "Admin" : "Member",
+              accessRole: m.accessRole,
+              joinedAt: new Date(m.joined_at).toLocaleDateString(),
+            }))
+          )
+        } else {
+          setMembers([])
+        }
+      } catch (err) {
+        console.error("Failed to fetch members:", err)
+        setMembers([])
+      } finally {
+        setLoadingMembers(false)
+      }
+    }
+    fetchMembers()
+  }, [auth?.tenantId])
 
   const handleProfileSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -67,6 +142,59 @@ export function SettingsPage() {
     }
   }
 
+  const handleGenerateInvite = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!inviteEmail.trim()) return
+
+    setGeneratingInvite(true)
+    try {
+      let customISO: string | undefined = undefined
+      if (expirationChoice === "custom") {
+        if (!customDateTime) {
+          toast.error("Please pick a custom expiration date and time")
+          setGeneratingInvite(false)
+          return
+        }
+        customISO = new Date(customDateTime).toISOString()
+      }
+
+      const res = await authApi.createInvitation(inviteEmail.trim(), expirationChoice, customISO)
+      setGeneratedToken(res.token)
+      setTokenExpiryDate(new Date(res.expires_at).toLocaleString())
+      toast.success(`Join token generated for ${inviteEmail}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to generate invitation token"
+      toast.error(message)
+    } finally {
+      setGeneratingInvite(false)
+    }
+  }
+
+  const handleCopyToken = () => {
+    if (generatedToken) {
+      navigator.clipboard.writeText(generatedToken)
+      setCopiedToken(true)
+      toast.success("Join Token copied to clipboard")
+      setTimeout(() => setCopiedToken(false), 2000)
+    }
+  }
+
+  const handleRemoveMember = async (member: WorkspaceMemberUI) => {
+    if (member.accessRole >= 60 && currentUserRole <= 60 && member.email !== auth?.email) {
+      toast.error("Admins cannot remove other Admins. Only the workspace Owner can.")
+      return
+    }
+
+    try {
+      await authApi.removeTenantUser(member.id)
+      setMembers((prev) => prev.filter((m) => m.id !== member.id))
+      toast.success(`Removed ${member.fullName} from workspace`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to remove member"
+      toast.error(message)
+    }
+  }
+
   return (
     <div className="flex h-full w-full flex-col">
       <header className="flex h-16 shrink-0 items-center justify-between border-b px-6">
@@ -74,11 +202,12 @@ export function SettingsPage() {
       </header>
 
       <div className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-2xl">
+        <div className="mx-auto max-w-4xl">
           <Tabs defaultValue="profile" className="w-full">
             <TabsList className="mb-6">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
+              <TabsTrigger value="members">Workspace Members</TabsTrigger>
             </TabsList>
             
             <TabsContent value="profile">
@@ -185,9 +314,210 @@ export function SettingsPage() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="members">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <div>
+                    <CardTitle className="text-lg">Workspace Members</CardTitle>
+                    <CardDescription className="text-xs">
+                      Manage tenant members, roles, and invitation tokens for self-hosted access.
+                    </CardDescription>
+                  </div>
+                  <Button onClick={() => { setGeneratedToken(null); setInviteEmail(""); setExpirationChoice("1-day"); setCustomDateTime(""); setShowInviteModal(true) }}>
+                    <UserPlus className="mr-2 size-4" /> Generate Join Token
+                  </Button>
+                </CardHeader>
+
+                <CardContent>
+                  {loadingMembers ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="size-6 animate-spin text-violet-500" />
+                    </div>
+                  ) : members.length === 0 ? (
+                    <div className="text-center py-8 text-xs text-muted-foreground">
+                      No member list data available for this workspace session.
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>User</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Joined Date</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {members.map((member) => {
+                          const isOwner = member.role === "Owner"
+                          const isAdmin = member.role === "Admin"
+                          return (
+                            <TableRow key={member.id}>
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <div className="flex size-8 items-center justify-center rounded-full bg-violet-500/10 text-violet-600 font-semibold text-xs border border-violet-500/20">
+                                    {member.fullName[0]}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-sm">{member.fullName}</div>
+                                    <div className="text-xs text-muted-foreground">{member.email} • @{member.handle}</div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    isOwner
+                                      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                                      : isAdmin
+                                      ? "bg-violet-500/10 text-violet-600 border-violet-500/30"
+                                      : "bg-slate-500/10 text-slate-600 border-slate-500/30"
+                                  }
+                                >
+                                  {isOwner && <ShieldAlert className="mr-1 size-3" />}
+                                  {isAdmin && <Shield className="mr-1 size-3" />}
+                                  {!isOwner && !isAdmin && <User className="mr-1 size-3" />}
+                                  {member.role}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {member.joinedAt}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {!isOwner && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-destructive hover:bg-destructive/10"
+                                    onClick={() => handleRemoveMember(member)}
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </div>
+
+      {/* Modal: Generate Join Token */}
+      <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ticket className="size-5 text-violet-600" /> Generate Join Token
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Generate a unique invitation token bound to a target email with a preset or custom expiration date and hour.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!generatedToken ? (
+            <form onSubmit={handleGenerateInvite} className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="invite-email" className="text-xs font-medium">
+                  Target User Email
+                </Label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="newuser@example.com"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium flex items-center gap-1.5">
+                  <Clock className="size-3.5 text-muted-foreground" /> Token Expiration
+                </Label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[
+                    { id: "1-day", label: "1 Day" },
+                    { id: "3-days", label: "3 Days" },
+                    { id: "7-days", label: "1 Week" },
+                    { id: "30-days", label: "30 Days" },
+                    { id: "custom", label: "Custom" },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setExpirationChoice(item.id)}
+                      className={`text-xs px-2.5 py-2 rounded-md border font-medium transition-all ${
+                        expirationChoice === item.id
+                          ? "bg-violet-600 text-white border-violet-600"
+                          : "bg-background hover:bg-muted text-muted-foreground border-input"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+
+                {expirationChoice === "custom" && (
+                  <div className="pt-2 space-y-1.5">
+                    <Label htmlFor="custom-datetime" className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                      <Calendar className="size-3" /> Select Expiration Date & Hour
+                    </Label>
+                    <Input
+                      id="custom-datetime"
+                      type="datetime-local"
+                      value={customDateTime}
+                      onChange={(e) => setCustomDateTime(e.target.value)}
+                      className="text-xs"
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="ghost" onClick={() => setShowInviteModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={generatingInvite} className="bg-violet-600 hover:bg-violet-500 text-white">
+                  {generatingInvite && <Loader2 className="mr-2 size-4 animate-spin" />}
+                  Generate Token
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className="p-3 bg-muted rounded-lg space-y-2">
+                <div className="flex items-center justify-between text-xs font-medium">
+                  <span className="text-muted-foreground">Target Email: <strong className="text-foreground">{inviteEmail}</strong></span>
+                  <Badge variant="outline" className="bg-violet-500/10 text-violet-600 border-violet-500/20 text-[10px]">
+                    <Clock className="mr-1 size-3" /> Expires: {tokenExpiryDate}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="flex-1 font-mono text-xs p-2 bg-background border rounded break-all select-all">
+                    {generatedToken}
+                  </div>
+                  <Button size="sm" onClick={handleCopyToken} className="shrink-0">
+                    {copiedToken ? <Check className="size-4 text-green-500" /> : <Copy className="size-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button onClick={() => setShowInviteModal(false)}>Done</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

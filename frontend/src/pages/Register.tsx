@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { useNavigate } from "react-router-dom"
-import { Loader2, Check, Copy } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAuth } from "@/context/auth-context"
@@ -19,30 +19,19 @@ export function RegisterPage() {
   const { register } = useAuth()
   const navigate = useNavigate()
 
-  const [tenantName, setTenantName] = useState("")
   const [email, setEmail] = useState("")
   const [handle, setHandle] = useState("")
   const [fullName, setFullName] = useState("")
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [copiedToken, setCopiedToken] = useState(false)
-
-  const handleCopyToken = () => {
-    const token = localStorage.getItem("llm_eval.token")
-    if (token) {
-      navigator.clipboard.writeText(token)
-      setCopiedToken(true)
-      toast.success("Token copied to clipboard")
-      setTimeout(() => setCopiedToken(false), 2000)
-    }
-  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
     try {
-      await register(tenantName, email, handle, fullName, password)
-      toast.success("Account created successfully!")
+      await register(email, handle, fullName, password)
+      toast.success("Account created successfully! Select or create a workspace.")
+      navigate("/workspace")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong"
       toast.error(message)
@@ -88,47 +77,11 @@ export function RegisterPage() {
           <CardHeader>
             <CardTitle className="text-xl">Create account</CardTitle>
             <CardDescription>
-              Set up a tenant and your first user account.
+              Set up your user account to join or create a workspace.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 p-3 bg-muted rounded-md">
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-xs font-medium">Your Token</Label>
-                <button
-                  type="button"
-                  onClick={handleCopyToken}
-                  className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
-                >
-                  {copiedToken ? (
-                    <>
-                      <span>Copied!</span>
-                      <Check className="size-3" />
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="size-3" />
-                      <span>Copy token</span>
-                    </>
-                  )}
-                </button>
-              </div>
-              <div className="text-xs break-all font-mono bg-background p-2 rounded border">
-                {localStorage.getItem("llm_eval.token") || "Not available yet"}
-              </div>
-            </div>
-
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="tenant">Tenant name</Label>
-                <Input
-                  id="tenant"
-                  value={tenantName}
-                  onChange={(e) => setTenantName(e.target.value)}
-                  placeholder="Acme Labs"
-                  required
-                />
-              </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input

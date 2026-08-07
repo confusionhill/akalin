@@ -6,6 +6,7 @@ import { RequireAuth } from "@/components/RequireAuth"
 import { AuthProvider } from "@/context/AuthContext"
 import { LoginPage } from "@/pages/Login"
 import { RegisterPage } from "@/pages/Register"
+import { SelectTenantPage } from "@/pages/SelectTenant"
 import { ProjectsPage } from "@/pages/Projects"
 import { ProvidersPage } from "@/pages/Providers"
 import { ModelsPage } from "@/pages/Models"
@@ -21,6 +22,14 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/workspace"
+            element={
+              <RequireAuth>
+                <SelectTenantPage />
+              </RequireAuth>
+            }
+          />
           <Route
             element={
               <RequireAuth>

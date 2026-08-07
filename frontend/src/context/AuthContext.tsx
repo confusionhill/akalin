@@ -20,7 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("llm_eval.token", res.token)
     setStoredAuth({
       userId: res.id,
-      tenantId: res.tenant_id,
+      tenantId: undefined,
       email: res.email,
       handle: res.handle,
       fullName: res.full_name,
@@ -28,21 +28,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const register = async (
-    tenantName: string,
     email: string,
     handle: string,
     fullName: string,
     password: string,
   ) => {
-    const res = await authApi.register(tenantName, email, handle, fullName, password)
+    const res = await authApi.register(email, handle, fullName, password)
     localStorage.setItem("llm_eval.token", res.token)
     setStoredAuth({
       userId: res.id,
-      tenantId: res.tenant_id,
+      tenantId: undefined,
       email: res.email,
       handle: res.handle,
       fullName: res.full_name,
     })
+  }
+
+  const switchTenant = async (tenantId: string) => {
+    const res = await authApi.switchTenant(tenantId)
+    localStorage.setItem("llm_eval.token", res.token)
+    if (auth) {
+      const updated = {
+        ...auth,
+        tenantId: res.tenant_id,
+        accessRole: res.access_role,
+      }
+      setAuth(updated)
+      setStoredAuth(updated)
+    }
   }
 
   const updateAuth = (updates: Partial<AuthState>) => {
@@ -65,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: auth !== null,
         login,
         register,
+        switchTenant,
         updateAuth,
         logout,
       }}

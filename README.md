@@ -1,39 +1,84 @@
 # Akalin — LLM Prompt Evaluation Pipeline
 
-> **Live at [akalin.space](https://akalin.space)**
+> **Check at [akalin.space](https://akalin.space)**
 
-An interactive platform to design, test, track, and grade LLM system prompts.
+Akalin is an enterprise-grade interactive platform designed to build, benchmark, track, and auto-refine LLM system prompts and agentic tool workflows.
 
-Akalin lets developers benchmark how different system prompts perform across a collection of test cases. Select target LLMs to generate answers, use evaluator LLMs to grade them against expected outputs (0.0–1.0 rubric scoring), set pass thresholds, and review full historical runs. It features Bring Your Own Key (BYOK) for any OpenAI-compatible LLM provider, a PostgreSQL-backed evaluation queue with cancellation support, and full audit tracking.
+Akalin allows developers to test system prompts across test cases, evaluate model outputs with custom rubrics (scored 0.0–1.0), tune model-level behavioral parameters, track step-by-step tool invocation stack traces with token consumption, auto-calibrate evaluation rubrics via meta-LLMs, and run evaluations asynchronously with a PostgreSQL-backed worker queue.
 
 ---
 
 ## Key Features
 
-- **Prompt Versioning** — Track historical changes to system prompts and compare or revert previous revisions.
-- **Custom Evaluation Rubrics** — Inject custom grading criteria (tone, formatting, accuracy, tool adherence) per project.
-- **Bring Your Own Key (BYOK)** — Connect any OpenAI-compatible endpoint (Ollama, OpenRouter, Anthropic proxy, etc.) by configuring the base URL, API key, and custom HTTP headers.
-- **Interactive Stack Tracing & Token Metrics** — Inspect the complete step-by-step lifecycle of target LLM executions (`User Input` → `AI Tool Call` → `Tool Result` → `AI Final Answer`) in a vertical timeline view with granular token consumption metrics (`in` / `out`) per step.
-- **Mock Tool Calling & Blacklisting** — Create global mock tools with canned responses, assign them to projects, and selectively blacklist tools per evaluation run to test tool-calling decisions.
-- **Tool Invocation Audit** — Track exactly which tools were called by the target LLM for every test case.
-- **Background Evaluation Queue** — Evaluations run asynchronously via a PostgreSQL `FOR UPDATE SKIP LOCKED` queue with a configurable worker pool. Supports mid-run cancellation.
-- **Pass Thresholds** — Define quality gates (e.g. average score ≥ 0.8) and automatically flag whether a run passed or failed.
-- **User Profiles** — Unique handles, full names, and per-user settings (profile & password update).
-- **Granular Auditing** — Tracks who created, modified, or executed every project, prompt, config, and evaluation run.
+### 🎛️ Advanced Core Behavioral Parameters
+- **Fine-Grained Parameter Tuning** — Configure `Temperature`, `Top-P`, `Top-K`, and `Max Tokens` per evaluation preset or individual run.
+- **Rubric Calibration Tuning** — Apply custom behavioral parameters to Meta-LLMs during automated rubric calibration.
+- **Toggleable UI & Run Auditing** — Toggle advanced settings on demand in the frontend dashboard and inspect configured behavioral parameters on completed run detail pages.
+
+### 🪄 Auto-Refine & Rubric Calibration
+- **CSV Data Calibration** — Auto-generate new evaluation rubrics from baseline training dataset CSVs.
+- **Low-Score Meta-LLM Auto-Refinement** — Automatically analyze historical low-scoring evaluation runs to produce refined, edge-case-resilient evaluation prompts.
+
+### 🔍 Interactive Stack Tracing & Token Metrics
+- **Vertical Execution Timelines** — Step-by-step visual lifecycle tracing for agentic tool workflows (`User Input` → `AI Tool Call` → `Tool Output` → `AI Final Answer`).
+- **Granular Token Metrics** — Real-time prompt (`in`), completion (`out`), and total token consumption breakdown per step.
+
+### 🛠️ Mock Tool Calling & Blacklisting
+- **Global & Project Tool Management** — Define global mock tools with custom parameters and mock outputs, and map them to projects.
+- **Per-Run Tool Blacklisting** — Toggle active tools on or off per evaluation run to test LLM tool-calling logic and fallback behavior.
+
+### ⚙️ Evaluation Presets & Config Management
+- **Reusable Pipeline Presets** — Save and reload pipeline configurations (System Prompt, Evaluation Rubric, Target Provider & Model, Evaluator Provider & Model, Pass Threshold, and Advanced Settings).
+- **Quality Gates** — Configurable pass/fail score thresholds (e.g., average score ≥ 0.8) with visual run status indicators.
+
+### 🔑 Bring Your Own Key (BYOK) & Model Catalog
+- **OpenAI-Compatible BYOK** — Connect any provider (OpenAI, OpenRouter, Ollama, Anthropic proxy, local vLLM) with custom Base URLs, API Keys, and Custom Headers.
+- **LLM Model Registry** — Catalog of saved models with built-in connectivity test tools.
+
+### ⚡ Async Background Queue & Cancellation
+- **PostgreSQL Worker Pool** — Asynchronous evaluation runner powered by PostgreSQL `FOR UPDATE SKIP LOCKED` locking for high concurrency.
+- **Mid-Run Cancellation** — Cancel pending or running evaluation jobs in real-time.
+
+### 🔐 Auth & Account Isolation
+- **Authentication & Security** — User registration, JWT authentication, user account isolation, and profile management (profile details & password updates).
+- **Granular Audit Trails** — Track creation and modification history for prompts, presets, test cases, tools, and evaluation runs.
 
 ---
 
-## Project Structure
+## 🏁 Version Milestones & Roadmap
+
+- **v0.1.0 (Current)** — **Database Schema Stability**: Core database architecture and domain models are stable and locked in.
+- **v1.0.0 (Target)** — **Full Production Stability & Agent CLI**:
+  - **API Stability**: Semantic versioning and fully specified OpenAPI schemas.
+  - **Database Stability**: Battle-tested zero-downtime migrations.
+  - **Frontend Stability**: Pixel-perfect UI/UX and comprehensive E2E test coverage.
+  - **CLI for Agent Interaction**: Command Line Interface allowing AI coding assistants and autonomous agents to trigger runs, fetch evaluation results, and calibrate rubrics programmatically.
+
+---
+
+## Architecture
+
+Akalin uses a decoupled, clean service-oriented architecture:
 
 ```text
 llm-evaluation-pipeline-dashboard/
 ├── backend/          # Go API server (Echo + sqlx + PostgreSQL)
-├── frontend/         # React + Vite + TypeScript (Shadcn UI)
-├── landing-page/     # Astro marketing site (akalin.space)
-└── README.md         # This file
+│   ├── cmd/server/   # API entrypoint
+│   └── internal/
+│       ├── db/       # Database connection & schema setup
+│       ├── middleware/# Auth & HTTP middleware
+│       ├── models/   # Shared domain entities & DTOs
+│       ├── validator/# Custom validator bridge
+│       └── service/  # Clean domain services (auth, evaluation, evaluator, llmmodel, project, prompt, provider, rubric, testcase, tool, worker)
+├── frontend/         # React + Vite + TypeScript + Shadcn UI
+└── landing-page/     # Astro marketing website (akalin.space)
 ```
 
-For setup, installation, and deployment instructions, refer to the READMEs in each directory:
+---
 
-- [Backend README](./backend/README.md)
-- [Frontend README](./frontend/README.md)
+## Quick Start
+
+For detailed setup, local development, and deployment guides, refer to:
+
+- [Backend Documentation](./backend/README.md)
+- [Frontend Documentation](./frontend/README.md)

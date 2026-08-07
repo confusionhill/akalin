@@ -1,63 +1,73 @@
-# LLM System Prompt Evaluation – Frontend
+# LLM System Prompt Evaluation — Frontend
 
-The frontend provides an interactive dashboard built with React, Vite, Tailwind CSS, and Shadcn UI. It includes prompt comparison tools, custom evaluation rubrics management, real-time queue polling, and an interactive **Vertical Execution Timeline** for inspecting step-by-step LLM tool calls and token metrics.
+The frontend provides a state-of-the-art, interactive web interface built with **React**, **Vite**, **TypeScript**, **Tailwind CSS**, and **Shadcn UI**.
+
+It features real-time evaluation dashboarding, prompt version management, rubric calibration modals, preset configuration tools, and an interactive **Vertical Execution Timeline** with step-by-step stack tracing and token metrics.
+
+---
+
+## Key Features
+
+- **Interactive Vertical Stack Tracing** — Visual step-by-step timeline of multi-turn LLM agent execution steps (`User Input`, `AI Tool Call`, `Tool Output`, `AI Final Answer`) with per-step token counts (`in`/`out`).
+- **Core Behavioral Parameters UI** — Toggleable **Advanced Settings** form fields (`Temperature`, `Top-P`, `Top-K`, `Max Tokens`) for evaluation presets, evaluation runs, and rubric calibration.
+- **Run Metadata Display** — Completed run detail pages display active advanced settings badges alongside score summaries and format checks.
+- **Auto-Refine & Rubric Calibration Modals** — Calibration wizard to generate rubrics from CSV dataset uploads or historical low-scoring evaluation runs.
+- **Mock Tools & Blacklisting Controls** — Interface to manage project tools and toggle per-run tool blacklisting to test model tool-selection logic.
+- **Preset Configurations Manager** — Modal interface to save, edit, reload, and delete reusable pipeline presets.
+- **Prompt Versioning Interface** — Immutability-enforced prompt version history for system prompts and evaluation rubrics.
+- **BYOK Provider & Model Management** — Management interfaces for BYOK provider configurations (custom headers, API keys, endpoints) and LLM model catalogs with test connection tools.
+- **User Profile & Settings** — User settings dialogs for profile name updates and password changes.
+
+---
 
 ## Requirements
 
 - **Node.js**: 20 or higher (LTS recommended)
-- **Package manager**: npm, pnpm, or Yarn
-- **Vite**: installed via the project dependencies
+- **Package Manager**: npm, pnpm, or Yarn
+- **Vite**: Installed via project dependencies
 - **React**: 18+ with TypeScript support
 
-## Setup & Development
+---
 
-1. Install dependencies:
+## Setup & Local Development
+
+1. **Install dependencies**:
    ```bash
    npm install   # or pnpm install / yarn install
    ```
-2. (Optional) Configure environment variables:
-   Create a `.env` file in the `frontend/` directory to point to the backend API:
+
+2. **Configure Environment Variables** (Optional):
+   Create a `.env` file in the `frontend/` directory:
    ```env
    VITE_API_BASE_URL="http://localhost:8080/api"
    ```
-   *(If not set, it defaults to `/api` which Vite proxies to `http://localhost:8080`)*
+   *(If not set, Vite proxies `/api` to `http://localhost:8080`)*
 
-3. Start the development server with hot‑module replacement:
+3. **Start Development Server**:
    ```bash
-   npm run dev   # Vite dev server, typically at http://localhost:5173
+   npm run dev   # Runs Vite dev server (typically http://localhost:5173)
    ```
-3. Open the URL shown in the terminal to view the app. Changes to source files will trigger automatic reloads.
+
+---
 
 ## Building for Production
 
-To create an optimized production bundle:
+To compile and build an optimized production bundle:
 ```bash
-npm run build   # Generates files in the `dist/` directory
+npm run build   # Generates output in the dist/ directory
 ```
-The output can be served by any static file server or integrated with the backend.
+
+---
 
 ## Linting & Formatting
 
-The project uses **Oxlint** with type‑aware rules. To run the linter:
+Run the linter using **Oxlint**:
 ```bash
 npm run lint
 ```
-If you need to enable additional type‑aware rules, install `oxlint-tsgolint` and adjust `.oxlintrc.json` as described in the original template.
 
-## Testing
-
-(Placeholder – add your preferred testing framework, e.g., Vitest or Jest, and scripts.)
+---
 
 ## Deployment
 
-The built `dist/` directory can be served via the Go backend's static file handler or deployed to any CDN.
-
----
-
-> [!NOTE]
-> This README mirrors the structure of the backend documentation for consistency across the project.
-
----
-
-> [!TIP]
-> Remember to keep the frontend dependencies up‑to‑date with `npm update` and regularly run the linter to catch issues early.
+The built `dist/` directory can be served via static file servers, Cloudflare Pages, Vercel, or embedded in the Go API server static file handler.

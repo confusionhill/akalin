@@ -1,6 +1,10 @@
 import { http } from "./client"
 import type {
   AuthResponse,
+  SessionResponse,
+  Tenant,
+  TenantUserResponse,
+  TenantInvitationResponse,
   CreateEvaluationInput,
   CreateEvaluationPromptInput,
   CreateProjectInput,
@@ -20,13 +24,27 @@ import type {
   UpdatePasswordInput,
 } from "./types"
 
-
 export const authApi = {
   login: (email: string, password: string) =>
     http.post<AuthResponse>("/auth/login", { email, password }),
-  register: (tenant_name: string, email: string, handle: string, full_name: string, password: string) =>
-    http.post<AuthResponse>("/auth/register", { tenant_name, email, handle, full_name, password }),
+  register: (email: string, handle: string, full_name: string, password: string) =>
+    http.post<AuthResponse>("/auth/register", { email, handle, full_name, password }),
+  createTenant: (name: string) =>
+    http.post<Tenant>("/auth/tenant", { name }),
+  getMyTenants: () =>
+    http.get<Tenant[]>("/auth/tenants"),
+  switchTenant: (tenant_id: string) =>
+    http.post<SessionResponse>("/auth/tenant/switch", { tenant_id }),
+  getTenantUsers: () =>
+    http.get<TenantUserResponse[]>("/auth/tenant/users"),
+  removeTenantUser: (userId: string) =>
+    http.delete<void>(`/auth/tenant/users/${userId}`),
+  createInvitation: (email: string, expires_in?: string, custom_expires_at?: string) =>
+    http.post<TenantInvitationResponse>("/auth/tenant/invites", { email, expires_in, custom_expires_at }),
+  joinTenant: (token: string) =>
+    http.post<Tenant>("/auth/tenant/join", { token }),
 }
+
 
 export const usersApi = {
   updateProfile: (body: UpdateProfileInput) =>

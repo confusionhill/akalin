@@ -27,8 +27,25 @@ func NewJWTManager(secretKey string, expirationTime int) *JWTManager {
 	}
 }
 
-// GenerateToken creates a JWT token for a user
-func (j *JWTManager) GenerateToken(tenantID, userID uuid.UUID, accessRole int) (string, error) {
+// GenerateUserToken creates a User-level JWT token (no tenant selected yet)
+func (j *JWTManager) GenerateUserToken(userID uuid.UUID) (string, error) {
+	claims := &Claims{
+		UserID:     userID,
+		TenantID:   uuid.Nil,
+		AccessRole: 0,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * time.Duration(j.expirationTime))),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "llm-eval-dashboard",
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(j.secretKey)
+}
+
+// GenerateSessionToken creates a Tenant-level session JWT token for a user in an active workspace
+func (j *JWTManager) GenerateSessionToken(tenantID, userID uuid.UUID, accessRole int) (string, error) {
 	claims := &Claims{
 		UserID:     userID,
 		TenantID:   tenantID,
@@ -42,6 +59,11 @@ func (j *JWTManager) GenerateToken(tenantID, userID uuid.UUID, accessRole int) (
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(j.secretKey)
+}
+
+// GenerateToken is a helper alias for GenerateSessionToken
+func (j *JWTManager) GenerateToken(tenantID, userID uuid.UUID, accessRole int) (string, error) {
+	return j.GenerateSessionToken(tenantID, userID, accessRole)
 }
 
 // ValidateToken validates a JWT token and returns claims

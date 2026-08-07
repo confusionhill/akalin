@@ -1,15 +1,41 @@
 export interface AuthResponse {
   id: string
-  tenant_id: string
   email: string
   handle: string
   full_name: string
   token: string
 }
 
+export interface SessionResponse {
+  tenant_id: string
+  user_id: string
+  access_role: number
+  token: string
+}
+
+export interface TenantUserResponse {
+  user_id: string
+  email: string
+  handle: string
+  full_name: string
+  access_role: number
+  joined_at: string
+}
+
+export interface TenantInvitationResponse {
+  id: string
+  tenant_id: string
+  email: string
+  access_role: number
+  token: string
+  expires_at: string
+  created_at: string
+}
+
 export interface Tenant {
   id: string
   name: string
+  master_user_id?: string
   created_at: string
   updated_at: string
 }

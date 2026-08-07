@@ -3,7 +3,6 @@ import { Outlet } from "react-router-dom"
 import { Menu, Moon, Sun, X } from "lucide-react"
 
 import { Sidebar } from "@/components/layout/Sidebar"
-import { UserMenu } from "@/components/layout/UserMenu"
 import { useTheme } from "@/lib/theme"
 import { Button } from "@/components/ui/button"
 
@@ -70,7 +69,6 @@ export function AppLayout() {
                 <Moon className="size-4" />
               )}
             </Button>
-            <UserMenu />
           </div>
         </header>
         <main className="bg-grid relative flex-1 overflow-y-auto">

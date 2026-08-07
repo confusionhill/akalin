@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
+	"strings"
+	"time"
 
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/config"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -15,6 +17,10 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrEmailTaken         = errors.New("email already registered")
 	ErrHandleTaken        = errors.New("handle already taken")
+	ErrInvitationExpired  = errors.New("invitation token has expired")
+	ErrInvitationInvalid  = errors.New("invitation token is invalid or target email does not match")
+	ErrNotMember          = errors.New("user is not a member of this workspace")
+	ErrUnauthorizedAction = errors.New("you do not have permission to perform this action")
 )
 
 type LoginReq struct {
@@ -23,11 +29,28 @@ type LoginReq struct {
 }
 
 type RegisterReq struct {
-	TenantName string `json:"tenant_name" validate:"required"`
-	Email      string `json:"email" validate:"required,email"`
-	Handle     string `json:"handle" validate:"required"`
-	FullName   string `json:"full_name" validate:"required"`
-	Password   string `json:"password" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
+	Handle   string `json:"handle" validate:"required"`
+	FullName string `json:"full_name" validate:"required"`
+	Password string `json:"password" validate:"required"`
+}
+
+type CreateTenantReq struct {
+	Name string `json:"name" validate:"required"`
+}
+
+type SwitchTenantReq struct {
+	TenantID uuid.UUID `json:"tenant_id" validate:"required"`
+}
+
+type CreateInvitationReq struct {
+	Email          string    `json:"email" validate:"required,email"`
+	ExpiresIn      string    `json:"expires_in"` // "1-day", "3-days", "7-days", "30-days", "custom"
+	CustomExpiresAt *time.Time `json:"custom_expires_at"`
+}
+
+type JoinTenantReq struct {
+	Token string `json:"token" validate:"required"`
 }
 
 type UpdateProfileReq struct {
@@ -42,10 +65,16 @@ type UpdatePasswordReq struct {
 }
 
 type AuthResponse struct {
-	ID         uuid.UUID `json:"id"`
-	Email      string    `json:"email"`
-	Handle     string    `json:"handle"`
-	FullName   string    `json:"full_name"`
+	ID       uuid.UUID `json:"id"`
+	Email    string    `json:"email"`
+	Handle   string    `json:"handle"`
+	FullName string    `json:"full_name"`
+	Token    string    `json:"token"`
+}
+
+type SessionResponse struct {
+	TenantID   uuid.UUID `json:"tenant_id"`
+	UserID     uuid.UUID `json:"user_id"`
 	AccessRole int       `json:"access_role"`
 	Token      string    `json:"token"`
 }
@@ -53,8 +82,15 @@ type AuthResponse struct {
 type Usecase interface {
 	Login(ctx context.Context, req LoginReq) (*AuthResponse, error)
 	Register(ctx context.Context, req RegisterReq) (*AuthResponse, error)
-	UpdateProfile(ctx context.Context, tenantID, userID uuid.UUID, req UpdateProfileReq) error
-	UpdatePassword(ctx context.Context, tenantID, userID uuid.UUID, req UpdatePasswordReq) error
+	CreateTenant(ctx context.Context, userID uuid.UUID, req CreateTenantReq) (*models.Tenant, error)
+	GetMyTenants(ctx context.Context, userID uuid.UUID) ([]models.Tenant, error)
+	SwitchTenant(ctx context.Context, userID uuid.UUID, req SwitchTenantReq) (*SessionResponse, error)
+	GetTenantUsers(ctx context.Context, tenantID uuid.UUID) ([]models.TenantUserResponse, error)
+	RemoveTenantUser(ctx context.Context, tenantID, actorID, targetUserID uuid.UUID) error
+	CreateInvitation(ctx context.Context, tenantID, actorID uuid.UUID, req CreateInvitationReq) (*models.TenantInvitation, error)
+	JoinTenant(ctx context.Context, userID uuid.UUID, req JoinTenantReq) (*models.Tenant, error)
+	UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileReq) error
+	UpdatePassword(ctx context.Context, userID uuid.UUID, req UpdatePasswordReq) error
 }
 
 type usecase struct {
@@ -70,51 +106,37 @@ func NewUsecase(repo Repository, cfg *config.Config) Usecase {
 }
 
 func (u *usecase) Login(ctx context.Context, req LoginReq) (*AuthResponse, error) {
-	log.Printf("[DEBUG Login] Attempting login for email: %s", req.Email)
 	user, err := u.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		log.Printf("[DEBUG Login] GetUserByEmail error: %v", err)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
 	}
 
-	log.Printf("[DEBUG Login] User found: ID=%s, Email=%s, Hash=%s", user.ID, user.Email, user.PasswordHash)
-
-	// Local seed user check
-	if user.Email == "admin@example.com" {
-		log.Printf("[DEBUG Login] Checking seed admin user with password: %s", req.Password)
+	if user.PasswordHash == "$2a$10$8s5qM8299K58x5uX.4lR1O0e6n.X/Yy.Xz.Xz.Xz.Xz.Xz.Xz.Xz" || user.PasswordHash == "hashedpassword" {
 		if req.Password != "password" && req.Password != "admin" {
-			err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
-			if err != nil {
-				log.Printf("[DEBUG Login] Bcrypt comparison failed for admin: %v", err)
-				return nil, ErrInvalidCredentials
-			}
-		} else {
-			log.Printf("[DEBUG Login] Password matched seed bypass!")
+			return nil, ErrInvalidCredentials
 		}
 	} else {
 		err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 		if err != nil {
-			log.Printf("[DEBUG Login] Bcrypt comparison failed: %v", err)
 			return nil, ErrInvalidCredentials
 		}
 	}
 
 	jwtManager := NewJWTManager(u.cfg.JWTSigningKey, int(u.cfg.JWTExpiration))
-	token, err := jwtManager.GenerateToken(user.TenantID, user.ID, user.AccessRole)
+	token, err := jwtManager.GenerateUserToken(user.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AuthResponse{
-		ID:         user.ID,
-		Email:      user.Email,
-		Handle:     user.Handle,
-		FullName:   user.FullName,
-		AccessRole: user.AccessRole,
-		Token:      token,
+		ID:       user.ID,
+		Email:    user.Email,
+		Handle:   user.Handle,
+		FullName: user.FullName,
+		Token:    token,
 	}, nil
 }
 
@@ -140,28 +162,155 @@ func (u *usecase) Register(ctx context.Context, req RegisterReq) (*AuthResponse,
 		return nil, err
 	}
 
-	user, err := u.repo.CreateTenantWithAdminUser(ctx, req.TenantName, req.Email, req.Handle, req.FullName, string(bytes))
+	user, err := u.repo.CreateUser(ctx, req.Email, req.Handle, req.FullName, string(bytes))
 	if err != nil {
 		return nil, err
 	}
 
 	jwtManager := NewJWTManager(u.cfg.JWTSigningKey, int(u.cfg.JWTExpiration))
-	token, err := jwtManager.GenerateToken(user.TenantID, user.ID, user.AccessRole)
+	token, err := jwtManager.GenerateUserToken(user.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AuthResponse{
-		ID:         user.ID,
-		Email:      user.Email,
-		Handle:     user.Handle,
-		FullName:   user.FullName,
-		AccessRole: user.AccessRole,
+		ID:       user.ID,
+		Email:    user.Email,
+		Handle:   user.Handle,
+		FullName: user.FullName,
+		Token:    token,
+	}, nil
+}
+
+func (u *usecase) CreateTenant(ctx context.Context, userID uuid.UUID, req CreateTenantReq) (*models.Tenant, error) {
+	return u.repo.CreateTenant(ctx, req.Name, userID)
+}
+
+func (u *usecase) GetMyTenants(ctx context.Context, userID uuid.UUID) ([]models.Tenant, error) {
+	return u.repo.GetTenantsForUser(ctx, userID)
+}
+
+func (u *usecase) SwitchTenant(ctx context.Context, userID uuid.UUID, req SwitchTenantReq) (*SessionResponse, error) {
+	role, err := u.repo.GetTenantUserRole(ctx, req.TenantID, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotMember
+		}
+		return nil, err
+	}
+
+	jwtManager := NewJWTManager(u.cfg.JWTSigningKey, int(u.cfg.JWTExpiration))
+	token, err := jwtManager.GenerateSessionToken(req.TenantID, userID, role)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SessionResponse{
+		TenantID:   req.TenantID,
+		UserID:     userID,
+		AccessRole: role,
 		Token:      token,
 	}, nil
 }
 
-func (u *usecase) UpdateProfile(ctx context.Context, tenantID, userID uuid.UUID, req UpdateProfileReq) error {
+func (u *usecase) GetTenantUsers(ctx context.Context, tenantID uuid.UUID) ([]models.TenantUserResponse, error) {
+	return u.repo.GetTenantUsers(ctx, tenantID)
+}
+
+func (u *usecase) RemoveTenantUser(ctx context.Context, tenantID, actorID, targetUserID uuid.UUID) error {
+	actorRole, err := u.repo.GetTenantUserRole(ctx, tenantID, actorID)
+	if err != nil {
+		return ErrUnauthorizedAction
+	}
+	if actorRole < 60 && actorID != targetUserID {
+		return ErrUnauthorizedAction
+	}
+
+	targetRole, err := u.repo.GetTenantUserRole(ctx, tenantID, targetUserID)
+	if err != nil {
+		return err
+	}
+
+	// Admins (60) cannot remove other admins (>=60) unless they are the owner (100) or removing themselves
+	if targetRole >= 60 && actorRole < 100 && actorID != targetUserID {
+		return ErrUnauthorizedAction
+	}
+
+	return u.repo.RemoveTenantUser(ctx, tenantID, targetUserID)
+}
+
+func (u *usecase) CreateInvitation(ctx context.Context, tenantID, actorID uuid.UUID, req CreateInvitationReq) (*models.TenantInvitation, error) {
+	actorRole, err := u.repo.GetTenantUserRole(ctx, tenantID, actorID)
+	if err != nil || actorRole < 60 {
+		return nil, ErrUnauthorizedAction
+	}
+
+	tokenStr := "inv-" + strings.ReplaceAll(uuid.New().String(), "-", "")[:12]
+
+	var expiresAt time.Time
+	if req.CustomExpiresAt != nil && !req.CustomExpiresAt.IsZero() {
+		expiresAt = *req.CustomExpiresAt
+	} else {
+		days := 1
+		switch req.ExpiresIn {
+		case "3-days":
+			days = 3
+		case "7-days":
+			days = 7
+		case "30-days":
+			days = 30
+		}
+		expiresAt = time.Now().AddDate(0, 0, days)
+	}
+
+	return u.repo.CreateInvitation(ctx, tenantID, strings.ToLower(req.Email), 0, tokenStr, expiresAt)
+}
+
+func (u *usecase) JoinTenant(ctx context.Context, userID uuid.UUID, req JoinTenantReq) (*models.Tenant, error) {
+	user, err := u.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	invite, err := u.repo.GetInvitationByToken(ctx, strings.TrimSpace(req.Token))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrInvitationInvalid
+		}
+		return nil, err
+	}
+
+	if time.Now().After(invite.ExpiresAt) {
+		return nil, ErrInvitationExpired
+	}
+
+	if strings.ToLower(invite.Email) != strings.ToLower(user.Email) {
+		return nil, ErrInvitationInvalid
+	}
+
+	err = u.repo.AddUserToTenant(ctx, invite.TenantID, user.ID, invite.AccessRole)
+	if err != nil {
+		return nil, err
+	}
+
+	// Clean up consumed invitation
+	_ = u.repo.DeleteInvitation(ctx, invite.ID)
+
+	tenants, err := u.repo.GetTenantsForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, t := range tenants {
+		if t.ID == invite.TenantID {
+			return &t, nil
+		}
+	}
+
+	return &models.Tenant{ID: invite.TenantID}, nil
+}
+
+func (u *usecase) UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileReq) error {
 	emailTaken, err := u.repo.IsEmailTaken(ctx, req.Email, userID)
 	if err != nil {
 		return err
@@ -178,16 +327,16 @@ func (u *usecase) UpdateProfile(ctx context.Context, tenantID, userID uuid.UUID,
 		return ErrHandleTaken
 	}
 
-	return u.repo.UpdateUserProfile(ctx, userID, tenantID, req.Email, req.Handle, req.FullName)
+	return u.repo.UpdateUserProfile(ctx, userID, req.Email, req.Handle, req.FullName)
 }
 
-func (u *usecase) UpdatePassword(ctx context.Context, tenantID, userID uuid.UUID, req UpdatePasswordReq) error {
+func (u *usecase) UpdatePassword(ctx context.Context, userID uuid.UUID, req UpdatePasswordReq) error {
 	user, err := u.repo.GetUserByID(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	if user.PasswordHash == "$2a$10$uRqdKxM/8fX8699hKj7qUeM7j052uF7c.jE.m574J2yqX0eE8d89O" || user.PasswordHash == "hashedpassword" {
+	if user.PasswordHash == "$2a$10$8s5qM8299K58x5uX.4lR1O0e6n.X/Yy.Xz.Xz.Xz.Xz.Xz.Xz.Xz" || user.PasswordHash == "hashedpassword" {
 		if req.CurrentPassword != "password" && req.CurrentPassword != "admin" {
 			return ErrInvalidCredentials
 		}
@@ -203,5 +352,5 @@ func (u *usecase) UpdatePassword(ctx context.Context, tenantID, userID uuid.UUID
 		return err
 	}
 
-	return u.repo.UpdateUserPassword(ctx, userID, tenantID, string(newBytes))
+	return u.repo.UpdateUserPassword(ctx, userID, string(newBytes))
 }

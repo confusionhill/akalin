@@ -22,7 +22,29 @@ func NewHandler(u Usecase, cfg *config.Config) *Handler {
 	}
 }
 
-// GetAuth extracts user context from JWT token (helper function)
+// GetUserAuth extracts user context from JWT token (only requires user_id)
+func (h *Handler) GetUserAuth(c echo.Context) (uuid.UUID, error) {
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader == "" {
+		return uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Missing Authorization header")
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		return uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Invalid Authorization header format")
+	}
+
+	jwtManager := NewJWTManager(h.cfg.JWTSigningKey, int(h.cfg.JWTExpiration))
+	claims, err := jwtManager.ValidateToken(tokenString)
+	if err != nil {
+		return uuid.Nil, echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
+	}
+
+	c.Set("user_id", claims.UserID)
+	return claims.UserID, nil
+}
+
+// GetAuth extracts full tenant session context from JWT token
 func (h *Handler) GetAuth(c echo.Context) (uuid.UUID, uuid.UUID, int, error) {
 	authHeader := c.Request().Header.Get("Authorization")
 	if authHeader == "" {
@@ -38,6 +60,10 @@ func (h *Handler) GetAuth(c echo.Context) (uuid.UUID, uuid.UUID, int, error) {
 	claims, err := jwtManager.ValidateToken(tokenString)
 	if err != nil {
 		return uuid.Nil, uuid.Nil, 0, echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
+	}
+
+	if claims.TenantID == uuid.Nil {
+		return uuid.Nil, claims.UserID, 0, echo.NewHTTPError(http.StatusForbidden, "No active workspace session selected. Please select a workspace.")
 	}
 
 	c.Set("tenant_id", claims.TenantID)
@@ -79,7 +105,7 @@ func (h *Handler) Register(c echo.Context) error {
 	resp, err := h.usecase.Register(c.Request().Context(), *req)
 	if err != nil {
 		if errors.Is(err, ErrEmailTaken) || errors.Is(err, ErrHandleTaken) {
-			return echo.NewHTTPError(http.StatusConflict, err.Error())
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -87,8 +113,155 @@ func (h *Handler) Register(c echo.Context) error {
 	return c.JSON(http.StatusCreated, resp)
 }
 
+func (h *Handler) CreateTenant(c echo.Context) error {
+	userID, err := h.GetUserAuth(c)
+	if err != nil {
+		return err
+	}
+
+	req := new(CreateTenantReq)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+
+	tenant, err := h.usecase.CreateTenant(c.Request().Context(), userID, *req)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusCreated, tenant)
+}
+
+func (h *Handler) GetMyTenants(c echo.Context) error {
+	userID, err := h.GetUserAuth(c)
+	if err != nil {
+		return err
+	}
+
+	tenants, err := h.usecase.GetMyTenants(c.Request().Context(), userID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, tenants)
+}
+
+func (h *Handler) SwitchTenant(c echo.Context) error {
+	userID, err := h.GetUserAuth(c)
+	if err != nil {
+		return err
+	}
+
+	req := new(SwitchTenantReq)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+
+	sess, err := h.usecase.SwitchTenant(c.Request().Context(), userID, *req)
+	if err != nil {
+		if errors.Is(err, ErrNotMember) {
+			return echo.NewHTTPError(http.StatusForbidden, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, sess)
+}
+
+func (h *Handler) GetTenantUsers(c echo.Context) error {
+	tenantID, _, _, err := h.GetAuth(c)
+	if err != nil {
+		return err
+	}
+
+	users, err := h.usecase.GetTenantUsers(c.Request().Context(), tenantID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, users)
+}
+
+func (h *Handler) RemoveTenantUser(c echo.Context) error {
+	tenantID, actorID, _, err := h.GetAuth(c)
+	if err != nil {
+		return err
+	}
+
+	targetUserID, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid user ID")
+	}
+
+	err = h.usecase.RemoveTenantUser(c.Request().Context(), tenantID, actorID, targetUserID)
+	if err != nil {
+		if errors.Is(err, ErrUnauthorizedAction) {
+			return echo.NewHTTPError(http.StatusForbidden, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *Handler) CreateInvitation(c echo.Context) error {
+	tenantID, actorID, _, err := h.GetAuth(c)
+	if err != nil {
+		return err
+	}
+
+	req := new(CreateInvitationReq)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+
+	invite, err := h.usecase.CreateInvitation(c.Request().Context(), tenantID, actorID, *req)
+	if err != nil {
+		if errors.Is(err, ErrUnauthorizedAction) {
+			return echo.NewHTTPError(http.StatusForbidden, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusCreated, invite)
+}
+
+func (h *Handler) JoinTenant(c echo.Context) error {
+	userID, err := h.GetUserAuth(c)
+	if err != nil {
+		return err
+	}
+
+	req := new(JoinTenantReq)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+
+	tenant, err := h.usecase.JoinTenant(c.Request().Context(), userID, *req)
+	if err != nil {
+		if errors.Is(err, ErrInvitationExpired) || errors.Is(err, ErrInvitationInvalid) {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, tenant)
+}
+
 func (h *Handler) UpdateProfile(c echo.Context) error {
-	tenantID, userID, _, err := h.GetAuth(c)
+	_, userID, _, err := h.GetAuth(c)
 	if err != nil {
 		return err
 	}
@@ -101,19 +274,23 @@ func (h *Handler) UpdateProfile(c echo.Context) error {
 		return err
 	}
 
-	err = h.usecase.UpdateProfile(c.Request().Context(), tenantID, userID, *req)
+	err = h.usecase.UpdateProfile(c.Request().Context(), userID, *req)
 	if err != nil {
 		if errors.Is(err, ErrEmailTaken) || errors.Is(err, ErrHandleTaken) {
-			return echo.NewHTTPError(http.StatusConflict, err.Error())
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Profile updated successfully"})
+	return c.JSON(http.StatusOK, map[string]string{
+		"email":     req.Email,
+		"handle":    req.Handle,
+		"full_name": req.FullName,
+	})
 }
 
 func (h *Handler) UpdatePassword(c echo.Context) error {
-	tenantID, userID, _, err := h.GetAuth(c)
+	_, userID, _, err := h.GetAuth(c)
 	if err != nil {
 		return err
 	}
@@ -126,13 +303,15 @@ func (h *Handler) UpdatePassword(c echo.Context) error {
 		return err
 	}
 
-	err = h.usecase.UpdatePassword(c.Request().Context(), tenantID, userID, *req)
+	err = h.usecase.UpdatePassword(c.Request().Context(), userID, *req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
-			return echo.NewHTTPError(http.StatusUnauthorized, "Current password is incorrect")
+			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Password updated successfully"})
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "Password updated successfully",
+	})
 }

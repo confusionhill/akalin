@@ -2,10 +2,11 @@ import { createContext, useContext } from "react"
 
 export interface AuthState {
   userId: string
-  tenantId: string
+  tenantId?: string
   email: string
   handle: string
   fullName: string
+  accessRole?: number
 }
 
 export interface AuthContextValue {
@@ -13,12 +14,12 @@ export interface AuthContextValue {
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
   register: (
-    tenantName: string,
     email: string,
     handle: string,
     fullName: string,
     password: string,
   ) => Promise<void>
+  switchTenant: (tenantId: string) => Promise<void>
   updateAuth: (updates: Partial<AuthState>) => void
   logout: () => void
 }
