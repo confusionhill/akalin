@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
-import { ArrowLeft, Loader2, Pencil } from "lucide-react"
+import { ArrowLeft, Loader2, Pencil, Terminal, FileText, CheckSquare, Wrench, BarChart3, ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 
 import { evaluationPromptsApi, projectsApi, systemPromptsApi } from "@/api"
@@ -24,10 +24,17 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { EvaluationsTab } from "@/pages/project/EvaluationsTab"
 import { PromptVersionsTab } from "@/pages/project/PromptVersionsTab"
 import { TestCasesTab } from "@/pages/project/TestCasesTab"
-import { formatRelativeTime } from "@/lib/utils"
+import { cn, formatRelativeTime } from "@/lib/utils"
 
 import { ProjectToolsTab } from "@/pages/project/ProjectTools"
 
@@ -62,6 +69,21 @@ export function ProjectDetailPage() {
       active = false
     }
   }, [id, navigate])
+
+  const sections = [
+    { id: "prompts", label: "System prompts", icon: Terminal },
+    { id: "rubric", label: "Evaluation prompts", icon: FileText },
+    { id: "cases", label: "Test cases", icon: CheckSquare },
+    { id: "tools", label: "Tools", icon: Wrench },
+    { id: "evaluations", label: "Evaluations", icon: BarChart3 },
+  ]
+
+  const setActiveTab = (val: string) => {
+    setSearchParams((prev) => {
+      prev.set("tab", val)
+      return prev
+    })
+  }
 
   const openEdit = () => {
     setEditName(project?.name ?? "")
@@ -161,61 +183,90 @@ export function ProjectDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <Tabs 
-        value={activeTab} 
-        onValueChange={(val) => setSearchParams((prev) => { prev.set("tab", val); return prev; })}
-        className="w-full"
-      >
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="prompts">System prompts</TabsTrigger>
-          <TabsTrigger value="rubric">Evaluation prompts</TabsTrigger>
-          <TabsTrigger value="cases">Test cases</TabsTrigger>
-          <TabsTrigger value="tools">Tools</TabsTrigger>
-          <TabsTrigger value="evaluations">Evaluations</TabsTrigger>
-        </TabsList>
+      {loading ? (
+        <LoadingPanel />
+      ) : (
+        <div className="flex flex-col md:flex-row gap-8 items-start relative">
+          {/* Mobile sticky header/selector */}
+          <div className="md:hidden sticky top-0 z-40 bg-background/95 backdrop-blur border-b py-3 mb-4 -mx-4 px-4 w-[calc(100%+2rem)] flex items-center justify-between">
+            <span className="text-sm font-semibold text-muted-foreground">Section:</span>
+            <Select value={activeTab} onValueChange={(val) => setActiveTab(val)}>
+              <SelectTrigger className="w-56 flex items-center gap-2">
+                <SelectValue placeholder="Select Section" />
+              </SelectTrigger>
+              <SelectContent>
+                {sections.map((s) => {
+                  const Icon = s.icon
+                  return (
+                    <SelectItem key={s.id} value={s.id}>
+                      <span className="flex items-center gap-2">
+                        <Icon className="size-4" />
+                        {s.label}
+                      </span>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <TabsContent value="prompts">
-          {loading ? (
-            <LoadingPanel />
-          ) : (
-            <PromptVersionsTab
-              projectId={id}
-              api={systemPromptsApi}
-              title="System prompts"
-              description="Versioned system prompts sent to the target model."
-              placeholder="You are a helpful assistant..."
-            />
-          )}
-        </TabsContent>
+          {/* Desktop Sidebar */}
+          <aside className="hidden md:block w-64 shrink-0 sticky top-6 space-y-1 bg-card border rounded-lg p-3 shadow-xs">
+            <div className="font-semibold text-xs text-muted-foreground uppercase tracking-wider px-3 mb-2">
+              Project Navigation
+            </div>
+            {sections.map((s) => {
+              const isActive = activeTab === s.id
+              const Icon = s.icon
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setActiveTab(s.id)}
+                  className={cn(
+                    "flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium rounded-md transition-all text-left",
+                    isActive
+                      ? "bg-primary/10 text-primary font-semibold border-l-2 border-primary pl-2.5 rounded-l-none"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Icon className={cn("size-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                  {s.label}
+                </button>
+              )
+            })}
+          </aside>
 
-        <TabsContent value="rubric">
-          {loading || !project ? (
-            <LoadingPanel />
-          ) : (
-            <PromptVersionsTab
-              projectId={project.id}
-              api={evaluationPromptsApi}
-              title="Evaluation Prompts"
-              description="Instructions defining the evaluation rubric and scoring criteria."
-              placeholder="e.g. Evaluate the output based on clarity and accuracy. Score 1.0 for perfect, 0.0 for wrong."
-              isEvaluationPrompt
-            />
-          )}
-        </TabsContent>
+          {/* Content area - lazy loaded */}
+          <div className="flex-1 min-w-0 w-full">
+            {activeTab === "prompts" && (
+              <PromptVersionsTab
+                projectId={id}
+                api={systemPromptsApi}
+                title="System prompts"
+                description="Versioned system prompts sent to the target model."
+                placeholder="You are a helpful assistant..."
+              />
+            )}
 
-        <TabsContent value="cases">
-          {loading ? <LoadingPanel /> : <TestCasesTab projectId={id} />}
-        </TabsContent>
+            {activeTab === "rubric" && (
+              <PromptVersionsTab
+                projectId={id}
+                api={evaluationPromptsApi}
+                title="Evaluation Prompts"
+                description="Instructions defining the evaluation rubric and scoring criteria."
+                placeholder="e.g. Evaluate the output based on clarity and accuracy. Score 1.0 for perfect, 0.0 for wrong."
+                isEvaluationPrompt
+              />
+            )}
 
-        <TabsContent value="tools">
-          {loading ? <LoadingPanel /> : <ProjectToolsTab projectId={id} />}
-        </TabsContent>
+            {activeTab === "cases" && <TestCasesTab projectId={id} />}
 
+            {activeTab === "tools" && <ProjectToolsTab projectId={id} />}
 
-        <TabsContent value="evaluations">
-          {loading ? <LoadingPanel /> : <EvaluationsTab projectId={id} />}
-        </TabsContent>
-      </Tabs>
+            {activeTab === "evaluations" && <EvaluationsTab projectId={id} />}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
