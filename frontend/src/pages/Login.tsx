@@ -1,6 +1,6 @@
-import { useState, type FormEvent, useCallback } from "react"
+import { useState, type FormEvent } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { Loader2, Copy, Check, LogOut } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAuth } from "@/context/auth-context"
@@ -16,48 +16,29 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export function LoginPage() {
-  const { login, register, logout, isAuthenticated, auth } = useAuth()
+  const { login, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from =
-    (location.state as { from?: string } | null)?.from ?? "/projects"
+    (location.state as { from?: string } | null)?.from ?? "/workspace"
 
-  const [mode, setMode] = useState<"login" | "register">("login")
-  const [tenantName, setTenantName] = useState("")
   const [email, setEmail] = useState("")
-  const [handle, setHandle] = useState("")
-  const [fullName, setFullName] = useState("")
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [copiedToken, setCopiedToken] = useState(false)
 
-  const handleCopyToken = useCallback(() => {
-    const token = localStorage.getItem("llm_eval.token")
-    if (token) {
-      navigator.clipboard.writeText(token)
-      setCopiedToken(true)
-      toast.success("Token copied to clipboard")
-      setTimeout(() => setCopiedToken(false), 2000)
-    }
-  }, [])
-
-  const handleLogout = useCallback(() => {
-    logout()
-    toast.success("Logged out successfully")
-    navigate("/login")
-  }, [logout, navigate])
+  // Redirect if already authenticated
+  if (isAuthenticated) {
+    navigate(from, { replace: true })
+    return null
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
     try {
-      if (mode === "login") {
-        await login(email, password)
-      } else {
-        await register(tenantName, email, handle, fullName, password)
-      }
+      await login(email, password)
       navigate(from, { replace: true })
-      toast.success(mode === "login" ? "Welcome back!" : "Account created")
+      toast.success("Welcome back!")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong"
       toast.error(message)
@@ -101,63 +82,13 @@ export function LoginPage() {
       <div className="bg-background flex items-center justify-center p-6">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-xl">
-              {mode === "login" ? "Sign in" : "Create account"}
-            </CardTitle>
+            <CardTitle className="text-xl">Sign in</CardTitle>
             <CardDescription>
-              {mode === "login"
-                ? "Enter your credentials to access the dashboard."
-                : "Set up a tenant and your first user account."}
+              Enter your email and password to access your dashboard.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isAuthenticated && (
-              <div className="mb-4 p-3 bg-muted rounded-md">
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-xs font-medium">Token</Label>
-                  <div className="flex gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCopyToken}
-                      className="h-6 px-2"
-                    >
-                      {copiedToken ? (
-                        <Check className="size-3 text-green-600" />
-                      ) : (
-                        <Copy className="size-3" />
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleLogout}
-                      className="h-6 px-2 text-red-600 hover:text-red-700"
-                    >
-                      <LogOut className="size-3" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="text-xs break-all font-mono bg-background p-2 rounded border">
-                  {auth?.email || "Logged in"}
-                </div>
-              </div>
-            )}
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {mode === "register" && (
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="tenant">Tenant name</Label>
-                  <Input
-                    id="tenant"
-                    value={tenantName}
-                    onChange={(e) => setTenantName(e.target.value)}
-                    placeholder="Acme Labs"
-                    required
-                  />
-                </div>
-              )}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -170,30 +101,6 @@ export function LoginPage() {
                   autoComplete="email"
                 />
               </div>
-              {mode === "register" && (
-                <>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="handle">Handle</Label>
-                    <Input
-                      id="handle"
-                      value={handle}
-                      onChange={(e) => setHandle(e.target.value)}
-                      placeholder="johndoe"
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="fullName">Full Name</Label>
-                    <Input
-                      id="fullName"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="John Doe"
-                      required
-                    />
-                  </div>
-                </>
-              )}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -203,49 +110,28 @@ export function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  autoComplete={
-                    mode === "login" ? "current-password" : "new-password"
-                  }
+                  autoComplete="current-password"
                 />
               </div>
               <Button type="submit" disabled={submitting} className="mt-2">
                 {submitting && <Loader2 className="size-4 animate-spin" />}
-                {mode === "login" ? "Sign in" : "Create account"}
+                Sign in
               </Button>
             </form>
-
-            {mode === "login" && (
-              <div className="bg-muted/60 mt-4 rounded-md px-3 py-2 text-xs text-muted-foreground">
-                Tip: seed account is{" "}
-                <code className="text-foreground">admin@example.com</code> /{" "}
-                <code className="text-foreground">password</code>
-              </div>
-            )}
-
+            <div className="bg-muted/60 mt-4 rounded-md px-3 py-2 text-xs text-muted-foreground">
+              Tip: seed account is{" "}
+              <code className="text-foreground">admin@example.com</code> /{" "}
+              <code className="text-foreground">password</code>
+            </div>
             <p className="text-muted-foreground mt-6 text-center text-sm">
-              {mode === "login" ? (
-                <>
-                  No account?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setMode("register")}
-                    className="text-primary hover:underline"
-                  >
-                    Create one
-                  </button>
-                </>
-              ) : (
-                <>
-                  Already registered?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setMode("login")}
-                    className="text-primary hover:underline"
-                  >
-                    Sign in
-                  </button>
-                </>
-              )}
+              Don't have an account?{" "}
+              <button
+                type="button"
+                onClick={() => navigate("/register")}
+                className="text-primary hover:underline"
+              >
+                Create one
+              </button>
             </p>
           </CardContent>
         </Card>

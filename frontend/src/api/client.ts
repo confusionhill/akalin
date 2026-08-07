@@ -26,17 +26,17 @@ export class ApiError extends Error {
 }
 
 export function getStoredAuth(): {
-  tenantId: string
+  tenantId?: string
   userId: string
   email: string
   handle: string
   fullName: string
 } | null {
-  const tenantId = localStorage.getItem(STORAGE_KEYS.tenantId)
   const userId = localStorage.getItem(STORAGE_KEYS.userId)
-  if (!tenantId || !userId) return null
+  if (!userId) return null
+  const tenantId = localStorage.getItem(STORAGE_KEYS.tenantId)
   return {
-    tenantId,
+    tenantId: tenantId && tenantId !== "undefined" ? tenantId : undefined,
     userId,
     email: localStorage.getItem(STORAGE_KEYS.email) ?? "",
     handle: localStorage.getItem(STORAGE_KEYS.handle) ?? "",
@@ -45,13 +45,17 @@ export function getStoredAuth(): {
 }
 
 export function setStoredAuth(auth: {
-  tenantId: string
+  tenantId?: string
   userId: string
   email: string
   handle: string
   fullName: string
 }): void {
-  localStorage.setItem(STORAGE_KEYS.tenantId, auth.tenantId)
+  if (auth.tenantId && auth.tenantId !== "undefined") {
+    localStorage.setItem(STORAGE_KEYS.tenantId, auth.tenantId)
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.tenantId)
+  }
   localStorage.setItem(STORAGE_KEYS.userId, auth.userId)
   localStorage.setItem(STORAGE_KEYS.email, auth.email)
   localStorage.setItem(STORAGE_KEYS.handle, auth.handle)

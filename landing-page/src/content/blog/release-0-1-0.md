@@ -2,7 +2,7 @@
 title: 'Syukuran Release v0.1.0 — Database is Stable & Our First Major Milestone!'
 description: 'Celebrating the official release of Akalin v0.1.0! Featuring database schema stability, full-featured multi-tenancy, join tokens with expiration, and our roadmap to v1.0.0 including Agent CLI.'
 pubDate: '2026-08-08'
-heroImage: '/dashboard-preview.png'
+heroImage: '/multi-tenant.png'
 draft: false
 ---
 
