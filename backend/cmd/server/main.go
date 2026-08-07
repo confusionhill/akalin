@@ -125,6 +125,14 @@ func main() {
 	toolsGroup.PUT("/:tool_id", h.UpdateTool)
 	toolsGroup.DELETE("/:tool_id", h.DeleteTool)
 
+	// LLM Models — tenant-scoped (global)
+	modelsGroup := api.Group("/models", authMiddleware.RequireAuth)
+	modelsGroup.GET("", h.GetLLMModels)
+	modelsGroup.POST("", h.CreateLLMModel)
+	modelsGroup.PUT("/:model_id", h.UpdateLLMModel)
+	modelsGroup.DELETE("/:model_id", h.DeleteLLMModel)
+	modelsGroup.POST("/test", h.TestLLMModel)
+
 	// Project Tools
 	projectGroup.GET("/:id/tools", h.GetProjectTools)
 	projectGroup.PUT("/:id/tools", h.UpdateProjectTools)

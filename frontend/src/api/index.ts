@@ -169,3 +169,14 @@ export const rubricDraftsApi = {
   remove: (projectId: string, draftId: string) =>
     http.del<void>(`/projects/${projectId}/rubric-drafts/${draftId}`),
 }
+
+export const llmModelsApi = {
+  list: () => http.get<import("./types").LLMModel[]>("/models"),
+  create: (body: import("./types").CreateLLMModelInput) =>
+    http.post<import("./types").LLMModel>("/models", body),
+  update: (modelId: string, body: import("./types").CreateLLMModelInput) =>
+    http.put<import("./types").LLMModel>(`/models/${modelId}`, body),
+  remove: (modelId: string) => http.del<void>(`/models/${modelId}`),
+  test: (body: import("./types").TestLLMModelInput) =>
+    http.post<import("./types").TestLLMModelResponse>("/models/test", body),
+}

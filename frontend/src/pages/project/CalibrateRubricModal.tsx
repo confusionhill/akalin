@@ -3,8 +3,8 @@ import { Loader2, Settings2, Upload, Download, Plus, Trash2 } from "lucide-react
 import { toast } from "sonner"
 import Papa from "papaparse"
 
-import { rubricDraftsApi, providersApi } from "@/api"
-import type { ProviderConfig, SystemPrompt, RubricTrainingRow } from "@/api/types"
+import { rubricDraftsApi, providersApi, llmModelsApi } from "@/api"
+import type { ProviderConfig, SystemPrompt, RubricTrainingRow, LLMModel } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -40,9 +40,10 @@ export function CalibrateRubricModal({
   onSuccess,
 }: CalibrateRubricModalProps) {
   const [providers, setProviders] = useState<ProviderConfig[]>([])
+  const [llmModels, setLlmModels] = useState<LLMModel[]>([])
 
   const [providerId, setProviderId] = useState("")
-  const [model, setModel] = useState("gpt-4o")
+  const [model, setModel] = useState("")
   const [basePromptId, setBasePromptId] = useState<string>("none")
   const [customInstructions, setCustomInstructions] = useState("")
 
@@ -50,17 +51,27 @@ export function CalibrateRubricModal({
   const [loading, setLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Fetch providers
+  // Fetch providers and models
   useEffect(() => {
-    if (open && providers.length === 0) {
-      providersApi.list().then(data => {
-        setProviders(data)
-        if (data.length > 0 && !providerId) {
-          setProviderId(data[0].id)
-        }
-      }).catch(() => toast.error("Failed to load providers"))
+    if (open) {
+      Promise.all([providersApi.list(), llmModelsApi.list()])
+        .then(([provData, modelData]) => {
+          setProviders(provData)
+          setLlmModels(modelData)
+          if (provData.length > 0) {
+            const initialProvId = providerId || provData[0].id
+            setProviderId(initialProvId)
+            const matched = modelData.filter((m) => m.provider_id === initialProvId)
+            if (matched.length > 0) {
+              setModel(matched[0].model)
+            } else if (!model) {
+              setModel("")
+            }
+          }
+        })
+        .catch(() => toast.error("Failed to load providers or models"))
     }
-  }, [open, providers.length, providerId])
+  }, [open])
 
   // Reset state when opened
   useEffect(() => {
@@ -168,8 +179,8 @@ export function CalibrateRubricModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-6 py-2 overflow-hidden flex-1">
-          <div className="grid grid-cols-3 gap-4">
+        <div className="flex flex-col gap-6 py-2 overflow-y-auto flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="basePrompt">Foundation Prompt</Label>
               <Select value={basePromptId} onValueChange={setBasePromptId}>
@@ -188,7 +199,15 @@ export function CalibrateRubricModal({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="provider">Meta-LLM Provider</Label>
-              <Select value={providerId} onValueChange={setProviderId}>
+              <Select
+                value={providerId}
+                onValueChange={(val) => {
+                  setProviderId(val)
+                  const matched = llmModels.filter((m) => m.provider_id === val)
+                  if (matched.length > 0) setModel(matched[0].model)
+                  else setModel("")
+                }}
+              >
                 <SelectTrigger id="provider">
                   <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
@@ -203,12 +222,35 @@ export function CalibrateRubricModal({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="model">Meta-LLM Model</Label>
-              <Input
-                id="model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder="e.g. gpt-4o"
-              />
+              {(() => {
+                const availableModels = llmModels.filter(
+                  (m) => m.provider_id === providerId
+                )
+                if (availableModels.length === 0) {
+                  return (
+                    <Input
+                      id="model"
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      placeholder="e.g. gpt-4o (or add model in Models tab)"
+                    />
+                  )
+                }
+                return (
+                  <Select value={model} onValueChange={setModel}>
+                    <SelectTrigger id="model">
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableModels.map((m) => (
+                        <SelectItem key={m.id} value={m.model}>
+                          {m.title} ({m.model})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              })()}
             </div>
           </div>
 
@@ -224,9 +266,9 @@ export function CalibrateRubricModal({
           </div>
 
           <div className="flex flex-col gap-2 flex-1 overflow-hidden min-h-0">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <Label>Training Data ({rows.length}/100)</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="file"
                   accept=".csv"

@@ -159,6 +159,19 @@ CREATE TABLE rubric_drafts (
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
+-- 13. LLM Models table (Tenant-scoped global model configs)
+CREATE TABLE llm_models (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    provider_id UUID REFERENCES provider_configs(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    model VARCHAR(255) NOT NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexing for performance
 CREATE INDEX idx_projects_tenant ON projects(tenant_id);
 CREATE INDEX idx_system_prompts_project ON system_prompts(project_id);
@@ -170,6 +183,8 @@ CREATE INDEX idx_project_tools_project ON project_tools(project_id);
 CREATE INDEX idx_evaluation_runs_project ON evaluation_runs(project_id);
 CREATE INDEX idx_evaluation_results_run ON evaluation_results(run_id);
 CREATE INDEX idx_rubric_drafts_project ON rubric_drafts(project_id);
+CREATE INDEX idx_llm_models_tenant ON llm_models(tenant_id);
+CREATE INDEX idx_llm_models_provider ON llm_models(provider_id);
 
 -- ==========================================
 -- SEED MOCK DATA FOR LOCAL DEVELOPMENT

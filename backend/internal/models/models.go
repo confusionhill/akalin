@@ -235,3 +235,16 @@ type RubricDraft struct {
 	CreatedAt          time.Time        `db:"created_at" json:"created_at"`
 	CompletedAt        *time.Time       `db:"completed_at" json:"completed_at"`
 }
+
+// LLMModel represents a saved LLM model configuration bound to a provider
+type LLMModel struct {
+	ID         uuid.UUID `db:"id" json:"id"`
+	TenantID   uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	ProviderID uuid.UUID `db:"provider_id" json:"provider_id" validate:"required"`
+	Title      string    `db:"title" json:"title" validate:"required"`
+	Model      string    `db:"model" json:"model" validate:"required"`
+	CreatedBy  uuid.UUID `db:"created_by" json:"created_by"`
+	UpdatedBy  uuid.UUID `db:"updated_by" json:"updated_by"`
+	CreatedAt  time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt  time.Time `db:"updated_at" json:"updated_at"`
+}

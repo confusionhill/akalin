@@ -228,3 +228,31 @@ export interface CalibrateRubricRequest {
   custom_instructions: string
   rows: RubricTrainingRow[]
 }
+
+export interface LLMModel {
+  id: string
+  tenant_id: string
+  provider_id: string
+  title: string
+  model: string
+  created_by: string
+  updated_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateLLMModelInput {
+  provider_id: string
+  title: string
+  model: string
+}
+
+export interface TestLLMModelInput {
+  provider_id: string
+  model: string
+}
+
+export interface TestLLMModelResponse {
+  success: boolean
+  error?: string
+}

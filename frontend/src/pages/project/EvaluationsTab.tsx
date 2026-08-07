@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import {
   evaluationPromptsApi,
   evaluationsApi,
+  llmModelsApi,
   projectToolsApi,
   providersApi,
   systemPromptsApi,
@@ -15,6 +16,7 @@ import {
 import type {
   EvaluationPrompt,
   EvaluationRun,
+  LLMModel,
   ProviderConfig,
   RunStatus,
   SystemPrompt,
@@ -103,6 +105,7 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
   const [sysPrompts, setSysPrompts] = useState<SystemPrompt[]>([])
   const [evalPrompts, setEvalPrompts] = useState<EvaluationPrompt[]>([])
   const [providers, setProviders] = useState<ProviderConfig[]>([])
+  const [llmModels, setLlmModels] = useState<LLMModel[]>([])
   const [testCases, setTestCases] = useState<TestCase[]>([])
   const [disabledTc, setDisabledTc] = useState<Set<string>>(new Set())
   const [projectTools, setProjectTools] = useState<Tool[]>([])
@@ -131,16 +134,18 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
 
   const loadFormOptions = async () => {
     try {
-      const [sp, ep, pv, tc, pt] = await Promise.all([
+      const [sp, ep, pv, lm, tc, pt] = await Promise.all([
         systemPromptsApi.list(projectId),
         evaluationPromptsApi.list(projectId),
         providersApi.list(),
+        llmModelsApi.list(),
         testCasesApi.list(projectId),
         projectToolsApi.list(projectId),
       ])
       setSysPrompts(sp)
       setEvalPrompts(ep)
       setProviders(pv)
+      setLlmModels(lm)
       setTestCases(tc)
       setProjectTools(pt)
       setDisabledTc(new Set())
@@ -150,6 +155,14 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
       if (pv.length > 0) {
         setTargetProviderId(pv[0].id)
         setEvaluatorProviderId(pv[0].id)
+        const targetMatched = lm.filter((m) => m.provider_id === pv[0].id)
+        if (targetMatched.length > 0) {
+          setTargetModel(targetMatched[0].model)
+          setEvaluatorModel(targetMatched[0].model)
+        } else {
+          setTargetModel("")
+          setEvaluatorModel("")
+        }
       }
     } catch {
       // ignore; toast handled by callers
@@ -307,7 +320,12 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
                 <FormField label="Target provider">
                   <Select
                     value={targetProviderId}
-                    onValueChange={setTargetProviderId}
+                    onValueChange={(val) => {
+                      setTargetProviderId(val)
+                      const matched = llmModels.filter((m) => m.provider_id === val)
+                      if (matched.length > 0) setTargetModel(matched[0].model)
+                      else setTargetModel("")
+                    }}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select provider" />
@@ -322,16 +340,47 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
                   </Select>
                 </FormField>
                 <FormField label="Target model">
-                  <Input
-                    value={targetModel}
-                    onChange={(e) => setTargetModel(e.target.value)}
-                    placeholder="gpt-4o-mini"
-                  />
+                  {(() => {
+                    const availableModels = llmModels.filter(
+                      (m) => m.provider_id === targetProviderId
+                    )
+                    if (availableModels.length === 0) {
+                      return (
+                        <Input
+                          value={targetModel}
+                          onChange={(e) => setTargetModel(e.target.value)}
+                          placeholder="e.g. gpt-4o-mini (or add model in Models tab)"
+                        />
+                      )
+                    }
+                    return (
+                      <Select
+                        value={targetModel}
+                        onValueChange={setTargetModel}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels.map((m) => (
+                            <SelectItem key={m.id} value={m.model}>
+                              {m.title} ({m.model})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
+                  })()}
                 </FormField>
                 <FormField label="Evaluator provider">
                   <Select
                     value={evaluatorProviderId}
-                    onValueChange={setEvaluatorProviderId}
+                    onValueChange={(val) => {
+                      setEvaluatorProviderId(val)
+                      const matched = llmModels.filter((m) => m.provider_id === val)
+                      if (matched.length > 0) setEvaluatorModel(matched[0].model)
+                      else setEvaluatorModel("")
+                    }}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select provider" />
@@ -346,11 +395,37 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
                   </Select>
                 </FormField>
                 <FormField label="Evaluator model">
-                  <Input
-                    value={evaluatorModel}
-                    onChange={(e) => setEvaluatorModel(e.target.value)}
-                    placeholder="gpt-4o"
-                  />
+                  {(() => {
+                    const availableModels = llmModels.filter(
+                      (m) => m.provider_id === evaluatorProviderId
+                    )
+                    if (availableModels.length === 0) {
+                      return (
+                        <Input
+                          value={evaluatorModel}
+                          onChange={(e) => setEvaluatorModel(e.target.value)}
+                          placeholder="e.g. gpt-4o (or add model in Models tab)"
+                        />
+                      )
+                    }
+                    return (
+                      <Select
+                        value={evaluatorModel}
+                        onValueChange={setEvaluatorModel}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels.map((m) => (
+                            <SelectItem key={m.id} value={m.model}>
+                              {m.title} ({m.model})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
+                  })()}
                 </FormField>
 <FormField label="Pass threshold (0.0 – 1.0)">
                  <Input
