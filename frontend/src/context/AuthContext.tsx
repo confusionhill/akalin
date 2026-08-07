@@ -47,15 +47,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchTenant = async (tenantId: string) => {
     const res = await authApi.switchTenant(tenantId)
     localStorage.setItem("llm_eval.token", res.token)
-    if (auth) {
-      const updated = {
-        ...auth,
-        tenantId: res.tenant_id,
-        accessRole: res.access_role,
-      }
-      setAuth(updated)
-      setStoredAuth(updated)
+    const base = getStoredAuth() || auth || { userId: "", email: "", handle: "", fullName: "" }
+    const updated = {
+      ...base,
+      tenantId: res.tenant_id,
+      accessRole: res.access_role,
     }
+    setAuth(updated)
+    setStoredAuth(updated)
   }
 
   const updateAuth = (updates: Partial<AuthState>) => {

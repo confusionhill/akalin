@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   email: "llm_eval.email",
   handle: "llm_eval.handle",
   fullName: "llm_eval.full_name",
+  accessRole: "llm_eval.access_role",
 } as const
 
 const BASE_URL =
@@ -31,16 +32,54 @@ export function getStoredAuth(): {
   email: string
   handle: string
   fullName: string
+  accessRole?: number
 } | null {
   const userId = localStorage.getItem(STORAGE_KEYS.userId)
   if (!userId) return null
-  const tenantId = localStorage.getItem(STORAGE_KEYS.tenantId)
+  let tenantId = localStorage.getItem(STORAGE_KEYS.tenantId)
+  let accessRole: number | undefined = undefined
+
+  const rawRole = localStorage.getItem(STORAGE_KEYS.accessRole)
+  if (rawRole !== null && rawRole !== "undefined") {
+    const parsed = parseInt(rawRole, 10)
+    if (!isNaN(parsed)) accessRole = parsed
+  }
+
+  // Fallback: decode JWT payload if present to recover active session role and tenantId
+  try {
+    const token = localStorage.getItem("llm_eval.token")
+    if (token) {
+      const parts = token.split(".")
+      if (parts.length === 3) {
+        const payload = JSON.parse(
+          atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
+        )
+        if (
+          accessRole === undefined &&
+          typeof payload.access_role === "number"
+        ) {
+          accessRole = payload.access_role
+        }
+        if (
+          (!tenantId || tenantId === "undefined") &&
+          payload.tenant_id &&
+          payload.tenant_id !== "00000000-0000-0000-0000-000000000000"
+        ) {
+          tenantId = payload.tenant_id
+        }
+      }
+    }
+  } catch {
+    // ignore token parse error
+  }
+
   return {
     tenantId: tenantId && tenantId !== "undefined" ? tenantId : undefined,
     userId,
     email: localStorage.getItem(STORAGE_KEYS.email) ?? "",
     handle: localStorage.getItem(STORAGE_KEYS.handle) ?? "",
     fullName: localStorage.getItem(STORAGE_KEYS.fullName) ?? "",
+    accessRole,
   }
 }
 
@@ -50,11 +89,17 @@ export function setStoredAuth(auth: {
   email: string
   handle: string
   fullName: string
+  accessRole?: number
 }): void {
   if (auth.tenantId && auth.tenantId !== "undefined") {
     localStorage.setItem(STORAGE_KEYS.tenantId, auth.tenantId)
   } else {
     localStorage.removeItem(STORAGE_KEYS.tenantId)
+  }
+  if (auth.accessRole !== undefined) {
+    localStorage.setItem(STORAGE_KEYS.accessRole, String(auth.accessRole))
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.accessRole)
   }
   localStorage.setItem(STORAGE_KEYS.userId, auth.userId)
   localStorage.setItem(STORAGE_KEYS.email, auth.email)
@@ -69,6 +114,7 @@ export function clearStoredAuth(): void {
   localStorage.removeItem(STORAGE_KEYS.email)
   localStorage.removeItem(STORAGE_KEYS.handle)
   localStorage.removeItem(STORAGE_KEYS.fullName)
+  localStorage.removeItem(STORAGE_KEYS.accessRole)
   window.dispatchEvent(new Event("auth:change"))
 }
 

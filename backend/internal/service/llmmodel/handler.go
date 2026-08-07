@@ -40,9 +40,12 @@ func (h *Handler) GetLLMModels(c echo.Context) error {
 }
 
 func (h *Handler) CreateLLMModel(c echo.Context) error {
-	tenantID, userID, _, err := h.authHandler.GetAuth(c)
+	tenantID, userID, accessRole, err := h.authHandler.GetAuth(c)
 	if err != nil {
 		return err
+	}
+	if accessRole < 60 {
+		return echo.NewHTTPError(http.StatusForbidden, "Forbidden: Only workspace admins or owners can configure models")
 	}
 
 	req := new(models.LLMModel)
@@ -62,9 +65,12 @@ func (h *Handler) CreateLLMModel(c echo.Context) error {
 }
 
 func (h *Handler) UpdateLLMModel(c echo.Context) error {
-	tenantID, userID, _, err := h.authHandler.GetAuth(c)
+	tenantID, userID, accessRole, err := h.authHandler.GetAuth(c)
 	if err != nil {
 		return err
+	}
+	if accessRole < 60 {
+		return echo.NewHTTPError(http.StatusForbidden, "Forbidden: Only workspace admins or owners can configure models")
 	}
 	modelID, err := uuid.Parse(c.Param("model_id"))
 	if err != nil {
@@ -91,9 +97,12 @@ func (h *Handler) UpdateLLMModel(c echo.Context) error {
 }
 
 func (h *Handler) DeleteLLMModel(c echo.Context) error {
-	tenantID, _, _, err := h.authHandler.GetAuth(c)
+	tenantID, _, accessRole, err := h.authHandler.GetAuth(c)
 	if err != nil {
 		return err
+	}
+	if accessRole < 60 {
+		return echo.NewHTTPError(http.StatusForbidden, "Forbidden: Only workspace admins or owners can configure models")
 	}
 	modelID, err := uuid.Parse(c.Param("model_id"))
 	if err != nil {
@@ -109,9 +118,12 @@ func (h *Handler) DeleteLLMModel(c echo.Context) error {
 }
 
 func (h *Handler) TestLLMModel(c echo.Context) error {
-	tenantID, _, _, err := h.authHandler.GetAuth(c)
+	tenantID, _, accessRole, err := h.authHandler.GetAuth(c)
 	if err != nil {
 		return err
+	}
+	if accessRole < 60 {
+		return echo.NewHTTPError(http.StatusForbidden, "Forbidden: Only workspace admins or owners can configure models")
 	}
 
 	req := new(TestLLMModelReq)

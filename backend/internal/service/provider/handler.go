@@ -38,9 +38,12 @@ func (h *Handler) GetProviders(c echo.Context) error {
 }
 
 func (h *Handler) CreateProvider(c echo.Context) error {
-	tenantID, userID, _, err := h.authHandler.GetAuth(c)
+	tenantID, userID, accessRole, err := h.authHandler.GetAuth(c)
 	if err != nil {
 		return err
+	}
+	if accessRole < 60 {
+		return echo.NewHTTPError(http.StatusForbidden, "Forbidden: Only workspace admins or owners can configure providers")
 	}
 
 	req := new(models.ProviderConfig)
@@ -60,9 +63,12 @@ func (h *Handler) CreateProvider(c echo.Context) error {
 }
 
 func (h *Handler) UpdateProvider(c echo.Context) error {
-	tenantID, userID, _, err := h.authHandler.GetAuth(c)
+	tenantID, userID, accessRole, err := h.authHandler.GetAuth(c)
 	if err != nil {
 		return err
+	}
+	if accessRole < 60 {
+		return echo.NewHTTPError(http.StatusForbidden, "Forbidden: Only workspace admins or owners can configure providers")
 	}
 	providerID, err := uuid.Parse(c.Param("provider_id"))
 	if err != nil {
@@ -89,9 +95,12 @@ func (h *Handler) UpdateProvider(c echo.Context) error {
 }
 
 func (h *Handler) DeleteProvider(c echo.Context) error {
-	tenantID, _, _, err := h.authHandler.GetAuth(c)
+	tenantID, _, accessRole, err := h.authHandler.GetAuth(c)
 	if err != nil {
 		return err
+	}
+	if accessRole < 60 {
+		return echo.NewHTTPError(http.StatusForbidden, "Forbidden: Only workspace admins or owners can configure providers")
 	}
 	providerID, err := uuid.Parse(c.Param("provider_id"))
 	if err != nil {

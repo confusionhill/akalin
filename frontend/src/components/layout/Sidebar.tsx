@@ -15,15 +15,17 @@ import { Separator } from "@/components/ui/separator"
 
 const navItems = [
   { to: "/projects", label: "Projects", icon: FlaskConical },
-  { to: "/providers", label: "Providers", icon: KeyRound },
-  { to: "/models", label: "Models", icon: Bot },
+  { to: "/providers", label: "Providers", icon: KeyRound, adminOnly: true },
+  { to: "/models", label: "Models", icon: Bot, adminOnly: true },
   { to: "/tools", label: "Tools", icon: Wrench },
 ]
-
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { auth, logout } = useAuth()
   const navigate = useNavigate()
+
+  const isAdmin = (auth?.accessRole ?? 0) >= 60
+  const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin)
 
   const handleLogout = () => {
     logout()
@@ -48,7 +50,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <p className="text-muted-foreground px-3 pb-1 pt-2 text-[11px] font-medium tracking-wider uppercase">
           Workspace
         </p>
-        {navItems.map((item) => (
+        {filteredNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

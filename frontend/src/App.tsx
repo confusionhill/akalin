@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 
 import { Toaster } from "@/components/ui/sonner"
 import { AppLayout } from "@/components/layout/AppLayout"
+import { RequireAdmin } from "@/components/RequireAdmin"
 import { RequireAuth } from "@/components/RequireAuth"
 import { AuthProvider } from "@/context/AuthContext"
 import { LoginPage } from "@/pages/Login"
@@ -38,8 +39,22 @@ export default function App() {
             }
           >
             <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/providers" element={<ProvidersPage />} />
-            <Route path="/models" element={<ModelsPage />} />
+            <Route
+              path="/providers"
+              element={
+                <RequireAdmin>
+                  <ProvidersPage />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/models"
+              element={
+                <RequireAdmin>
+                  <ModelsPage />
+                </RequireAdmin>
+              }
+            />
             <Route path="/tools" element={<ToolsPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />
             <Route
