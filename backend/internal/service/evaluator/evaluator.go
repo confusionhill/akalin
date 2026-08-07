@@ -189,15 +189,15 @@ func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
 			log.Printf("%s building context prompt with resume=%t", casePrefix, len(memory.Resume) > 0 && memory.Resume != "")
 
 			if len(activeTools) > 0 {
-				generatedOutput, toolsCalled, trace, err = targetClient.GenerateWithTools(ctx, run.TargetModel, contextPrompt, "", activeTools, 0.0)
+				generatedOutput, toolsCalled, trace, err = targetClient.GenerateWithTools(ctx, run.TargetModel, contextPrompt, "", activeTools, run.AdvancedSettings, 0.0)
 			} else {
-				generatedOutput, trace, err = targetClient.Generate(ctx, run.TargetModel, contextPrompt, "", 0.0)
+				generatedOutput, trace, err = targetClient.Generate(ctx, run.TargetModel, contextPrompt, "", run.AdvancedSettings, 0.0)
 			}
 		} else {
 			if len(activeTools) > 0 {
-				generatedOutput, toolsCalled, trace, err = targetClient.GenerateWithTools(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, activeTools, 0.0)
+				generatedOutput, toolsCalled, trace, err = targetClient.GenerateWithTools(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, activeTools, run.AdvancedSettings, 0.0)
 			} else {
-				generatedOutput, trace, err = targetClient.Generate(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, 0.0)
+				generatedOutput, trace, err = targetClient.Generate(ctx, run.TargetModel, sysPrompt.Content, tc.InputPrompt, run.AdvancedSettings, 0.0)
 			}
 		}
 
@@ -272,7 +272,7 @@ func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
 
 		log.Printf("%s grading with model %s", casePrefix, run.EvaluatorModel)
 		var evalResponse string
-		evalResponse, _, err = evaluatorClient.Generate(ctx, run.EvaluatorModel, "", evaluatorUserPrompt, 0.0)
+		evalResponse, _, err = evaluatorClient.Generate(ctx, run.EvaluatorModel, "", evaluatorUserPrompt, nil, 0.0)
 
 		var score float64
 		var reasoning string
@@ -400,6 +400,7 @@ func GenerateRefinedRubric(
 	existingRubric string,
 	customInstructions string,
 	rows []RubricTrainingRow,
+	adv *models.AdvancedSettings,
 ) (string, error) {
 
 	var prompt strings.Builder
@@ -443,7 +444,7 @@ REASONING: <brief reasoning>
 Output ONLY the rubric text. No preamble, no markdown fences.`)
 
 	// Call the LLM
-	generatedOutput, _, err := client.Generate(ctx, model, "", prompt.String(), 0.2) // Low temperature for consistency
+	generatedOutput, _, err := client.Generate(ctx, model, "", prompt.String(), adv, 0.2) // Default low temperature for consistency
 	if err != nil {
 		return "", err
 	}

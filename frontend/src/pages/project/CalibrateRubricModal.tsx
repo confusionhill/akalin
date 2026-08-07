@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { Loader2, Settings2, Upload, Download, Plus, Trash2 } from "lucide-react"
+import { Loader2, Settings2, Upload, Download, Plus, Trash2, SlidersHorizontal } from "lucide-react"
 import { toast } from "sonner"
 import Papa from "papaparse"
 
@@ -46,6 +46,12 @@ export function CalibrateRubricModal({
   const [model, setModel] = useState("")
   const [basePromptId, setBasePromptId] = useState<string>("none")
   const [customInstructions, setCustomInstructions] = useState("")
+
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [temperature, setTemperature] = useState<string>("")
+  const [topP, setTopP] = useState<string>("")
+  const [topK, setTopK] = useState<string>("")
+  const [maxTokens, setMaxTokens] = useState<string>("")
 
   const [rows, setRows] = useState<RubricTrainingRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -146,12 +152,22 @@ export function CalibrateRubricModal({
 
     setLoading(true)
     try {
+      const advPayload = showAdvanced
+        ? {
+            temperature: temperature !== "" ? Number.parseFloat(temperature) : undefined,
+            top_p: topP !== "" ? Number.parseFloat(topP) : undefined,
+            top_k: topK !== "" ? Number.parseInt(topK) : undefined,
+            max_tokens: maxTokens !== "" ? Number.parseInt(maxTokens) : undefined,
+          }
+        : undefined
+
       await rubricDraftsApi.calibrate(projectId, {
         provider_id: providerId,
         model: model,
         base_prompt_id: basePromptId === "none" ? undefined : basePromptId,
         custom_instructions: customInstructions,
-        rows: rows
+        rows: rows,
+        advanced_settings: advPayload,
       })
       toast.success("Calibration started")
       if (onSuccess) onSuccess()
@@ -175,23 +191,23 @@ export function CalibrateRubricModal({
             Calibrate Rubric
           </DialogTitle>
           <DialogDescription>
-            Manually supply inputs, expected outputs, and scoring logic, or upload a CSV to calibrate an evaluation prompt.
+            Provide baseline examples to auto-generate a custom evaluation rubric.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-6 py-2 overflow-y-auto flex-1">
+        <div className="flex flex-col gap-4 overflow-y-auto pr-1">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="basePrompt">Foundation Prompt</Label>
+              <Label htmlFor="basePrompt">Base Rubric (Optional)</Label>
               <Select value={basePromptId} onValueChange={setBasePromptId}>
                 <SelectTrigger id="basePrompt">
                   <SelectValue placeholder="Select prompt" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None (Start from scratch)</SelectItem>
+                  <SelectItem value="none">None (Generate from scratch)</SelectItem>
                   {prompts.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      Version {p.version}
+                      v{p.version} ({p.content.slice(0, 30)}...)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -252,6 +268,71 @@ export function CalibrateRubricModal({
                 )
               })()}
             </div>
+          </div>
+
+          <div className="rounded-lg border bg-card p-3 space-y-3">
+            <button
+              type="button"
+              className="flex items-center justify-between w-full text-xs font-semibold text-foreground hover:text-primary transition-colors"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              <span className="flex items-center gap-1.5">
+                <SlidersHorizontal className="size-3.5 text-primary" /> Advanced Settings (Core Behavioral Parameters)
+              </span>
+              <span className="text-[11px] text-muted-foreground font-normal">
+                {showAdvanced ? "Hide" : "Show"}
+              </span>
+            </button>
+            {showAdvanced && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Temperature</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    placeholder="e.g. 0.2"
+                    value={temperature}
+                    onChange={(e) => setTemperature(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Top P</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    placeholder="e.g. 0.9"
+                    value={topP}
+                    onChange={(e) => setTopP(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Top K</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="e.g. 40"
+                    value={topK}
+                    onChange={(e) => setTopK(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Max Tokens</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    placeholder="e.g. 2048"
+                    value={maxTokens}
+                    onChange={(e) => setMaxTokens(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">

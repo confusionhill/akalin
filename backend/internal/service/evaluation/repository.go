@@ -71,16 +71,16 @@ func (r *repository) CreateEvaluation(ctx context.Context, req models.Evaluation
 		INSERT INTO evaluation_runs (
 			project_id, config_id, system_prompt_id, evaluation_prompt_id,
 			target_provider_id, target_model, evaluator_provider_id,
-			evaluator_model, model_used, status, pass_threshold, run_by, blacklisted_test_case_ids, blacklisted_tool_ids, enable_memory
+			evaluator_model, model_used, status, pass_threshold, run_by, blacklisted_test_case_ids, blacklisted_tool_ids, enable_memory, advanced_settings
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $6, 'pending', $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $6, 'pending', $9, $10, $11, $12, $13, $14)
 		RETURNING *
 	`
 	var run models.EvaluationRun
 	err := r.db.GetContext(ctx, &run, query,
 		projectID, req.ConfigID, req.SystemPromptID, req.EvaluationPromptID,
 		req.TargetProviderID, req.TargetModel, req.EvaluatorProviderID,
-		req.EvaluatorModel, req.PassThreshold, userID, req.BlacklistedTestCaseIDs, req.BlacklistedToolIDs, req.EnableMemory,
+		req.EvaluatorModel, req.PassThreshold, userID, req.BlacklistedTestCaseIDs, req.BlacklistedToolIDs, req.EnableMemory, req.AdvancedSettings,
 	)
 	if err != nil {
 		return nil, err
@@ -169,16 +169,16 @@ func (r *repository) CreateConfig(ctx context.Context, req models.EvaluationConf
 		INSERT INTO evaluation_configs (
 			project_id, name, description, system_prompt_id, evaluation_prompt_id,
 			target_provider_id, target_model, evaluator_provider_id, evaluator_model,
-			pass_threshold, created_by, updated_by
+			pass_threshold, advanced_settings, created_by, updated_by
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
 		RETURNING *
 	`
 	var cfg models.EvaluationConfig
 	err := r.db.GetContext(ctx, &cfg, query,
 		projectID, req.Name, req.Description, req.SystemPromptID, req.EvaluationPromptID,
 		req.TargetProviderID, req.TargetModel, req.EvaluatorProviderID, req.EvaluatorModel,
-		req.PassThreshold, userID,
+		req.PassThreshold, req.AdvancedSettings, userID,
 	)
 	if err != nil {
 		return nil, err
@@ -191,15 +191,15 @@ func (r *repository) UpdateConfig(ctx context.Context, req models.EvaluationConf
 		UPDATE evaluation_configs
 		SET name = $1, description = $2, system_prompt_id = $3, evaluation_prompt_id = $4,
 		    target_provider_id = $5, target_model = $6, evaluator_provider_id = $7, evaluator_model = $8,
-		    pass_threshold = $9, updated_by = $10, updated_at = NOW()
-		WHERE id = $11 AND project_id = $12
+		    pass_threshold = $9, advanced_settings = $10, updated_by = $11, updated_at = NOW()
+		WHERE id = $12 AND project_id = $13
 		RETURNING *
 	`
 	var cfg models.EvaluationConfig
 	err := r.db.GetContext(ctx, &cfg, query,
 		req.Name, req.Description, req.SystemPromptID, req.EvaluationPromptID,
 		req.TargetProviderID, req.TargetModel, req.EvaluatorProviderID, req.EvaluatorModel,
-		req.PassThreshold, userID, configID, projectID,
+		req.PassThreshold, req.AdvancedSettings, userID, configID, projectID,
 	)
 	if err != nil {
 		return nil, err

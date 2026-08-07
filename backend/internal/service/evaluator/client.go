@@ -49,7 +49,10 @@ type ChatCompletionsRequest struct {
 	Model       string           `json:"model"`
 	Messages    []ChatMessage    `json:"messages"`
 	Tools       []ToolDefinition `json:"tools,omitempty"`
-	Temperature float64          `json:"temperature"`
+	Temperature *float64         `json:"temperature,omitempty"`
+	TopP        *float64         `json:"top_p,omitempty"`
+	TopK        *int             `json:"top_k,omitempty"`
+	MaxTokens   *int             `json:"max_tokens,omitempty"`
 }
 
 type ChatUsage struct {
@@ -85,7 +88,7 @@ func NewLLMClient(baseURL, apiKey string, customHeaders map[string]string) *LLMC
 	}
 }
 
-func (c *LLMClient) Generate(ctx context.Context, model string, systemPrompt, userPrompt string, temperature float64) (string, []models.TraceStep, error) {
+func (c *LLMClient) Generate(ctx context.Context, model string, systemPrompt, userPrompt string, adv *models.AdvancedSettings, defaultTemp float64) (string, []models.TraceStep, error) {
 	messages, err := buildMessages(systemPrompt, userPrompt, "")
 	if err != nil {
 		return "", nil, err
@@ -99,7 +102,7 @@ func (c *LLMClient) Generate(ctx context.Context, model string, systemPrompt, us
 		})
 	}
 	
-	msg, usage, err := c.makeRequestWithTools(ctx, model, messages, nil, temperature)
+	msg, usage, err := c.makeRequestWithTools(ctx, model, messages, nil, adv, defaultTemp)
 	if err != nil {
 		return "", trace, err
 	}
@@ -119,47 +122,51 @@ func buildMessages(systemPrompt, userPrompt, conversationHistory string) ([]Chat
 	messages := []ChatMessage{}
 
 	if systemPrompt != "" {
-		messages = append(messages, ChatMessage{Role: "system", Content: systemPrompt})
+		messages = append(messages, ChatMessage{
+			Role:    "system",
+			Content: systemPrompt,
+		})
 	}
 
 	if conversationHistory != "" {
-		historyLines := strings.Split(conversationHistory, "\n")
-		for _, line := range historyLines {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			if strings.HasPrefix(strings.ToLower(line), "user:") {
-				content := strings.TrimPrefix(line, "user:")
-				content = strings.TrimSpace(content)
-				if content != "" {
-					messages = append(messages, ChatMessage{Role: "user", Content: content})
-				}
-			} else if strings.HasPrefix(strings.ToLower(line), "assistant:") {
-				content := strings.TrimPrefix(line, "assistant:")
-				content = strings.TrimSpace(content)
-				if content != "" {
-					messages = append(messages, ChatMessage{Role: "assistant", Content: content})
-				}
-			}
-		}
+		messages = append(messages, ChatMessage{
+			Role:    "user",
+			Content: fmt.Sprintf("Previous Context:\n%s", conversationHistory),
+		})
+		messages = append(messages, ChatMessage{
+			Role:    "assistant",
+			Content: "Understood. I will use this context for our conversation.",
+		})
 	}
 
 	if userPrompt != "" {
-		messages = append(messages, ChatMessage{Role: "user", Content: userPrompt})
+		messages = append(messages, ChatMessage{
+			Role:    "user",
+			Content: userPrompt,
+		})
 	}
 
 	return messages, nil
 }
 
-func (c *LLMClient) makeRequestWithTools(ctx context.Context, model string, messages []ChatMessage, tools []ToolDefinition, temperature float64) (ChatMessage, ChatUsage, error) {
+func (c *LLMClient) makeRequestWithTools(ctx context.Context, model string, messages []ChatMessage, tools []ToolDefinition, adv *models.AdvancedSettings, defaultTemp float64) (ChatMessage, ChatUsage, error) {
 	url := fmt.Sprintf("%s/chat/completions", c.BaseURL)
 
 	reqBody := ChatCompletionsRequest{
-		Model:       model,
-		Messages:    messages,
-		Tools:       tools,
-		Temperature: temperature,
+		Model:    model,
+		Messages: messages,
+		Tools:    tools,
+	}
+
+	if adv != nil {
+		reqBody.Temperature = adv.Temperature
+		reqBody.TopP = adv.TopP
+		reqBody.TopK = adv.TopK
+		reqBody.MaxTokens = adv.MaxTokens
+	}
+
+	if reqBody.Temperature == nil {
+		reqBody.Temperature = &defaultTemp
 	}
 
 	jsonBytes, err := json.Marshal(reqBody)
@@ -220,7 +227,7 @@ func (c *LLMClient) makeRequestWithTools(ctx context.Context, model string, mess
 	return chatResp.Choices[0].Message, chatResp.Usage, nil
 }
 
-func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemPrompt, userPrompt string, availableTools []models.Tool, temperature float64) (string, []string, []models.TraceStep, error) {
+func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemPrompt, userPrompt string, availableTools []models.Tool, adv *models.AdvancedSettings, defaultTemp float64) (string, []string, []models.TraceStep, error) {
 	messages, err := buildMessages(systemPrompt, userPrompt, "")
 	if err != nil {
 		return "", nil, nil, err
@@ -263,7 +270,7 @@ func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemP
 	const maxTurns = 6
 
 	for turn := 0; turn < maxTurns; turn++ {
-		msg, usage, err := c.makeRequestWithTools(ctx, model, messages, toolDefs, temperature)
+		msg, usage, err := c.makeRequestWithTools(ctx, model, messages, toolDefs, adv, defaultTemp)
 		if err != nil {
 			return "", toolsCalled, trace, err
 		}
@@ -280,61 +287,47 @@ func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemP
 			return msg.Content, toolsCalled, trace, nil
 		}
 
-		var formattedToolCalls []map[string]interface{}
-		for _, tc := range msg.ToolCalls {
-			formattedToolCalls = append(formattedToolCalls, map[string]interface{}{
-				"name":      tc.Function.Name,
-				"arguments": tc.Function.Arguments,
-			})
-		}
-
-		trace = append(trace, models.TraceStep{
-			StepType:         "ai_tool_call",
-			Content:          msg.Content,
-			ToolCalls:        formattedToolCalls,
-			PromptTokens:     usage.PromptTokens,
-			CompletionTokens: usage.CompletionTokens,
-			TotalTokens:      usage.TotalTokens,
-		})
-
-		// Append the assistant's response (with tool_calls) to conversation history
+		// Save assistant's tool call message
 		messages = append(messages, msg)
 
-		// Intercept tool calls and feed back mocked results
-		for _, tc := range msg.ToolCalls {
-			toolName := tc.Function.Name
-			toolsCalled = append(toolsCalled, toolName)
+		// Process tool calls
+		for _, toolCall := range msg.ToolCalls {
+			toolsCalled = append(toolsCalled, toolCall.Function.Name)
 
-			var mockResult string = "Tool executed successfully."
+			trace = append(trace, models.TraceStep{
+				StepType:         "tool_call",
+				Content:          fmt.Sprintf("Call %s(%s)", toolCall.Function.Name, toolCall.Function.Arguments),
+				PromptTokens:     usage.PromptTokens,
+				CompletionTokens: usage.CompletionTokens,
+				TotalTokens:      usage.TotalTokens,
+			})
+
+			// Execute tool mock output
+			var toolResult string
+			var matchedTool *models.Tool
 			for _, t := range availableTools {
-				if t.Name == toolName {
-					mockResult = t.Result
-					
-					var args map[string]interface{}
-					if tc.Function.Arguments != "" {
-						if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil {
-							for k, v := range args {
-								strVal := fmt.Sprintf("%v", v)
-								mockResult = strings.ReplaceAll(mockResult, "{{"+k+"}}", strVal)
-								mockResult = strings.ReplaceAll(mockResult, "{{ "+k+" }}", strVal)
-							}
-						}
-					}
+				if t.Name == toolCall.Function.Name {
+					matchedTool = &t
 					break
 				}
 			}
 
+			if matchedTool != nil && matchedTool.Result != "" {
+				toolResult = matchedTool.Result
+			} else {
+				toolResult = fmt.Sprintf(`{"status": "success", "message": "Tool %s executed successfully"}`, toolCall.Function.Name)
+			}
+
 			trace = append(trace, models.TraceStep{
-				StepType: "tool_result",
-				ToolName: toolName,
-				Content:  mockResult,
+				StepType: "tool_output",
+				Content:  toolResult,
 			})
 
 			messages = append(messages, ChatMessage{
 				Role:       "tool",
-				ToolCallID: tc.ID,
-				Name:       toolName,
-				Content:    mockResult,
+				ToolCallID: toolCall.ID,
+				Name:       toolCall.Function.Name,
+				Content:    toolResult,
 			})
 		}
 	}
@@ -345,15 +338,14 @@ func (c *LLMClient) GenerateWithTools(ctx context.Context, model string, systemP
 }
 
 
-func (c *LLMClient) GenerateWithMemory(ctx context.Context, model string, systemPrompt string, conversationHistory string, temperature float64) (string, error) {
+func (c *LLMClient) GenerateWithMemory(ctx context.Context, model string, systemPrompt string, conversationHistory string, adv *models.AdvancedSettings, defaultTemp float64) (string, error) {
 	messages, err := buildMessages(systemPrompt, "", conversationHistory)
 	if err != nil {
 		return "", err
 	}
-	msg, _, err := c.makeRequestWithTools(ctx, model, messages, nil, temperature)
+	msg, _, err := c.makeRequestWithTools(ctx, model, messages, nil, adv, defaultTemp)
 	if err != nil {
 		return "", err
 	}
 	return msg.Content, nil
 }
-

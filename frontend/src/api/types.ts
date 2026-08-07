@@ -83,12 +83,19 @@ export interface Tool {
   updated_at: string
 }
 
-export type RunStatus = "pending" | "running" | "completed" | "failed"
+export type RunStatus = "pending" | "running" | "completed" | "failed" | "cancelled"
+
+export interface AdvancedSettings {
+  temperature?: number
+  top_p?: number
+  top_k?: number
+  max_tokens?: number
+}
 
 export interface EvaluationRun {
   id: string
   project_id: string
-  config_id?: string | null
+  config_id: string | null
   system_prompt_id: string
   evaluation_prompt_id: string
   target_provider_id: string
@@ -96,7 +103,7 @@ export interface EvaluationRun {
   evaluator_provider_id: string
   evaluator_model: string
   model_used: string
-  status: RunStatus
+  status: "pending" | "running" | "completed" | "failed" | "cancelled"
   pass_threshold: number
   is_passed: boolean | null
   average_score: number | null
@@ -104,6 +111,7 @@ export interface EvaluationRun {
   blacklisted_test_case_ids: string[]
   blacklisted_tool_ids: string[]
   enable_memory: boolean
+  advanced_settings?: AdvancedSettings | null
   run_by: string
   created_at: string
   completed_at: string | null
@@ -188,6 +196,7 @@ export interface CreateEvaluationInput {
   blacklisted_test_case_ids?: string[]
   blacklisted_tool_ids?: string[]
   enable_memory?: boolean
+  advanced_settings?: AdvancedSettings | null
 }
 
 export interface UpdateProfileInput {
@@ -231,6 +240,7 @@ export interface CalibrateRubricRequest {
   base_prompt_id?: string
   custom_instructions: string
   rows: RubricTrainingRow[]
+  advanced_settings?: AdvancedSettings | null
 }
 
 export interface LLMModel {
@@ -273,6 +283,7 @@ export interface EvaluationConfig {
   evaluator_provider_id: string
   evaluator_model: string
   pass_threshold: number
+  advanced_settings?: AdvancedSettings | null
   created_by: string
   updated_by: string
   created_at: string
@@ -289,4 +300,5 @@ export interface CreateEvaluationConfigInput {
   evaluator_provider_id: string
   evaluator_model: string
   pass_threshold: number
+  advanced_settings?: AdvancedSettings | null
 }

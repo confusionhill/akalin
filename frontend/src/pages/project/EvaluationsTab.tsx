@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowRight, CheckIcon, Copy, Edit, Loader2, Play, Plus, Save, Settings, Trash2, Sparkles, Wrench, XCircle } from "lucide-react"
+import { ArrowRight, CheckIcon, Copy, Edit, Loader2, Play, Plus, Save, Settings, SlidersHorizontal, Trash2, Sparkles, Wrench, XCircle } from "lucide-react"
 
 import { toast } from "sonner"
 
@@ -63,6 +63,7 @@ const statusVariant: Record<
   running: "info",
   completed: "success",
   failed: "destructive",
+  cancelled: "destructive",
 }
 
 function calculateModelStats(runs: EvaluationRun[]) {
@@ -130,6 +131,13 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
   const [evaluatorModel, setEvaluatorModel] = useState("")
   const [threshold, setThreshold] = useState("0.8")
   const [enableMemory, setEnableMemory] = useState(false)
+
+  // Advanced settings state
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [temperature, setTemperature] = useState<string>("")
+  const [topP, setTopP] = useState<string>("")
+  const [topK, setTopK] = useState<string>("")
+  const [maxTokens, setMaxTokens] = useState<string>("")
 
   // Save new preset config form state
   const [configName, setConfigName] = useState("")
@@ -204,6 +212,19 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
     setEvaluatorProviderId(cfg.evaluator_provider_id || "")
     setEvaluatorModel(cfg.evaluator_model || "")
     setThreshold(cfg.pass_threshold ? cfg.pass_threshold.toString() : "0.8")
+    if (cfg.advanced_settings) {
+      setShowAdvanced(true)
+      setTemperature(cfg.advanced_settings.temperature !== undefined ? String(cfg.advanced_settings.temperature) : "")
+      setTopP(cfg.advanced_settings.top_p !== undefined ? String(cfg.advanced_settings.top_p) : "")
+      setTopK(cfg.advanced_settings.top_k !== undefined ? String(cfg.advanced_settings.top_k) : "")
+      setMaxTokens(cfg.advanced_settings.max_tokens !== undefined ? String(cfg.advanced_settings.max_tokens) : "")
+    } else {
+      setShowAdvanced(false)
+      setTemperature("")
+      setTopP("")
+      setTopK("")
+      setMaxTokens("")
+    }
   }
 
   const loadFromRun = (run: EvaluationRun) => {
@@ -216,6 +237,19 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
     setEvaluatorModel(run.evaluator_model || "")
     setThreshold(run.pass_threshold ? run.pass_threshold.toString() : "0.8")
     setEnableMemory(run.enable_memory || false)
+    if (run.advanced_settings) {
+      setShowAdvanced(true)
+      setTemperature(run.advanced_settings.temperature !== undefined ? String(run.advanced_settings.temperature) : "")
+      setTopP(run.advanced_settings.top_p !== undefined ? String(run.advanced_settings.top_p) : "")
+      setTopK(run.advanced_settings.top_k !== undefined ? String(run.advanced_settings.top_k) : "")
+      setMaxTokens(run.advanced_settings.max_tokens !== undefined ? String(run.advanced_settings.max_tokens) : "")
+    } else {
+      setShowAdvanced(false)
+      setTemperature("")
+      setTopP("")
+      setTopK("")
+      setMaxTokens("")
+    }
     if (run.blacklisted_test_case_ids) {
       setDisabledTc(new Set(run.blacklisted_test_case_ids))
     }
@@ -252,6 +286,15 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
     }
     setSaving(true)
     try {
+      const advPayload = showAdvanced
+        ? {
+            temperature: temperature !== "" ? Number.parseFloat(temperature) : undefined,
+            top_p: topP !== "" ? Number.parseFloat(topP) : undefined,
+            top_k: topK !== "" ? Number.parseInt(topK) : undefined,
+            max_tokens: maxTokens !== "" ? Number.parseInt(maxTokens) : undefined,
+          }
+        : undefined
+
       await evaluationsApi.create(projectId, {
         config_id: selectedConfigId || undefined,
         system_prompt_id: systemPromptId,
@@ -265,6 +308,7 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
         blacklisted_test_case_ids: Array.from(disabledTc),
         blacklisted_tool_ids: Array.from(blacklistedTools),
         enable_memory: enableMemory,
+        advanced_settings: advPayload,
       })
       toast.success("Evaluation run started")
       setOpen(false)
@@ -283,6 +327,15 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
     }
     setSavingConfig(true)
     try {
+      const advPayload = showAdvanced
+        ? {
+            temperature: temperature !== "" ? Number.parseFloat(temperature) : undefined,
+            top_p: topP !== "" ? Number.parseFloat(topP) : undefined,
+            top_k: topK !== "" ? Number.parseInt(topK) : undefined,
+            max_tokens: maxTokens !== "" ? Number.parseInt(maxTokens) : undefined,
+          }
+        : undefined
+
       const payload = {
         name: configName.trim(),
         description: configDesc.trim(),
@@ -293,6 +346,7 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
         evaluator_provider_id: evaluatorProviderId,
         evaluator_model: evaluatorModel.trim(),
         pass_threshold: Number.parseFloat(threshold) || 0.8,
+        advanced_settings: advPayload,
       }
       if (editingConfig) {
         await evaluationConfigsApi.update(projectId, editingConfig.id, payload)
@@ -355,11 +409,7 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
     }
   }
 
-  const ready =
-    sysPrompts.length > 0 &&
-    evalPrompts.length > 0 &&
-    providers.length > 0 &&
-    testCases.length > 0
+
 
   return (
     <div className="flex flex-col gap-4">
@@ -883,6 +933,67 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
                   )
                 })()}
               </FormField>
+            </div>
+
+            <div className="rounded-lg border bg-card p-3 space-y-3">
+              <button
+                type="button"
+                className="flex items-center justify-between w-full text-xs font-semibold text-foreground hover:text-primary transition-colors"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+              >
+                <span className="flex items-center gap-1.5">
+                  <SlidersHorizontal className="size-3.5 text-primary" /> Advanced Settings (Core Behavioral Parameters)
+                </span>
+                <span className="text-[11px] text-muted-foreground font-normal">
+                  {showAdvanced ? "Hide" : "Show"}
+                </span>
+              </button>
+              {showAdvanced && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                  <FormField label="Temperature">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      placeholder="e.g. 0.7"
+                      value={temperature}
+                      onChange={(e) => setTemperature(e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Top P">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      placeholder="e.g. 0.9"
+                      value={topP}
+                      onChange={(e) => setTopP(e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Top K">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={1}
+                      placeholder="e.g. 40"
+                      value={topK}
+                      onChange={(e) => setTopK(e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Max Tokens">
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      placeholder="e.g. 2048"
+                      value={maxTokens}
+                      onChange={(e) => setMaxTokens(e.target.value)}
+                    />
+                  </FormField>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>

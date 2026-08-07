@@ -118,6 +118,7 @@ CREATE TABLE evaluation_configs (
     evaluator_provider_id UUID REFERENCES provider_configs(id) ON DELETE SET NULL,
     evaluator_model VARCHAR(100) NOT NULL,
     pass_threshold NUMERIC(3,2) DEFAULT 0.80,
+    advanced_settings JSONB,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -144,6 +145,7 @@ CREATE TABLE evaluation_runs (
     blacklisted_test_case_ids JSONB DEFAULT '[]'::jsonb,
     blacklisted_tool_ids JSONB DEFAULT '[]'::jsonb,
     enable_memory BOOLEAN DEFAULT false,
+    advanced_settings JSONB,
     run_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP WITH TIME ZONE

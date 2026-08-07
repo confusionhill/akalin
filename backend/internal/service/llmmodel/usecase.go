@@ -57,7 +57,7 @@ func (u *usecase) TestLLMModel(ctx context.Context, tenantID uuid.UUID, req Test
 	}
 
 	client := evaluator.NewLLMClient(provider.BaseURL, provider.APIKey, provider.CustomHeaders)
-	_, _, err = client.Generate(ctx, req.Model, "", "Hello", 0.0)
+	_, _, err = client.Generate(ctx, req.Model, "", "Hello", nil, 0.0)
 	if err != nil {
 		return &TestLLMModelResp{Success: false, Error: err.Error()}, nil
 	}

@@ -184,28 +184,52 @@ type ProviderConfig struct {
 	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
 }
 
+// AdvancedSettings represents configurable LLM core behavioral parameters
+type AdvancedSettings struct {
+	Temperature *float64 `db:"temperature" json:"temperature,omitempty"`
+	TopP        *float64 `db:"top_p" json:"top_p,omitempty"`
+	TopK        *int     `db:"top_k" json:"top_k,omitempty"`
+	MaxTokens   *int     `db:"max_tokens" json:"max_tokens,omitempty"`
+}
+
+func (a AdvancedSettings) Value() (driver.Value, error) {
+	return json.Marshal(a)
+}
+
+func (a *AdvancedSettings) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+	return json.Unmarshal(b, a)
+}
+
 type EvaluationRun struct {
-	ID                     uuid.UUID   `db:"id" json:"id"`
-	ProjectID              uuid.UUID   `db:"project_id" json:"project_id"`
-	ConfigID               *uuid.UUID  `db:"config_id" json:"config_id"`
-	SystemPromptID         uuid.UUID   `db:"system_prompt_id" json:"system_prompt_id" validate:"required"`
-	EvaluationPromptID     uuid.UUID   `db:"evaluation_prompt_id" json:"evaluation_prompt_id" validate:"required"`
-	TargetProviderID       uuid.UUID   `db:"target_provider_id" json:"target_provider_id" validate:"required"`
-	TargetModel            string      `db:"target_model" json:"target_model" validate:"required"`
-	EvaluatorProviderID    uuid.UUID   `db:"evaluator_provider_id" json:"evaluator_provider_id" validate:"required"`
-	EvaluatorModel         string      `db:"evaluator_model" json:"evaluator_model" validate:"required"`
-	ModelUsed              string      `db:"model_used" json:"model_used"`
-	Status                 string      `db:"status" json:"status"`
-	PassThreshold          float64     `db:"pass_threshold" json:"pass_threshold" validate:"required,gte=0,lte=1"`
-	IsPassed               *bool       `db:"is_passed" json:"is_passed"`
-	AverageScore           *float64    `db:"average_score" json:"average_score"`
-	FailureReason          *string     `db:"failure_reason" json:"failure_reason"`
-	BlacklistedTestCaseIDs StringArray `db:"blacklisted_test_case_ids" json:"blacklisted_test_case_ids"`
-	BlacklistedToolIDs     StringArray `db:"blacklisted_tool_ids" json:"blacklisted_tool_ids"`
-	EnableMemory           bool        `db:"enable_memory" json:"enable_memory"`
-	RunBy                  uuid.UUID   `db:"run_by" json:"run_by"`
-	CreatedAt              time.Time   `db:"created_at" json:"created_at"`
-	CompletedAt            *time.Time  `db:"completed_at" json:"completed_at"`
+	ID                     uuid.UUID         `db:"id" json:"id"`
+	ProjectID              uuid.UUID         `db:"project_id" json:"project_id"`
+	ConfigID               *uuid.UUID        `db:"config_id" json:"config_id"`
+	SystemPromptID         uuid.UUID         `db:"system_prompt_id" json:"system_prompt_id" validate:"required"`
+	EvaluationPromptID     uuid.UUID         `db:"evaluation_prompt_id" json:"evaluation_prompt_id" validate:"required"`
+	TargetProviderID       uuid.UUID         `db:"target_provider_id" json:"target_provider_id" validate:"required"`
+	TargetModel            string            `db:"target_model" json:"target_model" validate:"required"`
+	EvaluatorProviderID    uuid.UUID         `db:"evaluator_provider_id" json:"evaluator_provider_id" validate:"required"`
+	EvaluatorModel         string            `db:"evaluator_model" json:"evaluator_model" validate:"required"`
+	ModelUsed              string            `db:"model_used" json:"model_used"`
+	Status                 string            `db:"status" json:"status"`
+	PassThreshold          float64           `db:"pass_threshold" json:"pass_threshold" validate:"required,gte=0,lte=1"`
+	IsPassed               *bool             `db:"is_passed" json:"is_passed"`
+	AverageScore           *float64          `db:"average_score" json:"average_score"`
+	FailureReason          *string           `db:"failure_reason" json:"failure_reason"`
+	BlacklistedTestCaseIDs StringArray       `db:"blacklisted_test_case_ids" json:"blacklisted_test_case_ids"`
+	BlacklistedToolIDs     StringArray       `db:"blacklisted_tool_ids" json:"blacklisted_tool_ids"`
+	EnableMemory           bool              `db:"enable_memory" json:"enable_memory"`
+	AdvancedSettings       *AdvancedSettings `db:"advanced_settings" json:"advanced_settings"`
+	RunBy                  uuid.UUID         `db:"run_by" json:"run_by"`
+	CreatedAt              time.Time         `db:"created_at" json:"created_at"`
+	CompletedAt            *time.Time        `db:"completed_at" json:"completed_at"`
 }
 
 type EvaluationResult struct {
@@ -223,19 +247,19 @@ type EvaluationResult struct {
 
 // RubricDraft represents an auto-refinement session for generating an evaluation prompt
 type RubricDraft struct {
-	ID                 uuid.UUID  `db:"id" json:"id"`
-	ProjectID          uuid.UUID  `db:"project_id" json:"project_id"`
-	Status             string           `db:"status" json:"status"`
-	DraftContent       *string          `db:"draft_content" json:"draft_content"`
-	FailureReason      *string          `db:"failure_reason" json:"failure_reason"`
-	Payload            *json.RawMessage `db:"payload" json:"payload"`
-	SourceRunID        *uuid.UUID       `db:"source_run_id" json:"source_run_id"`
-	BasePromptID       *uuid.UUID       `db:"base_prompt_id" json:"base_prompt_id"`
-	BasePromptVersion  *int             `db:"base_prompt_version" json:"base_prompt_version"`
-	ResultsAnalyzed    *int             `db:"results_analyzed" json:"results_analyzed"`
-	CreatedBy          *uuid.UUID       `db:"created_by" json:"created_by"`
-	CreatedAt          time.Time        `db:"created_at" json:"created_at"`
-	CompletedAt        *time.Time       `db:"completed_at" json:"completed_at"`
+	ID                uuid.UUID        `db:"id" json:"id"`
+	ProjectID         uuid.UUID        `db:"project_id" json:"project_id"`
+	Status            string           `db:"status" json:"status"`
+	DraftContent      *string          `db:"draft_content" json:"draft_content"`
+	FailureReason     *string          `db:"failure_reason" json:"failure_reason"`
+	Payload           *json.RawMessage `db:"payload" json:"payload"`
+	SourceRunID       *uuid.UUID       `db:"source_run_id" json:"source_run_id"`
+	BasePromptID      *uuid.UUID       `db:"base_prompt_id" json:"base_prompt_id"`
+	BasePromptVersion *int             `db:"base_prompt_version" json:"base_prompt_version"`
+	ResultsAnalyzed   *int             `db:"results_analyzed" json:"results_analyzed"`
+	CreatedBy         *uuid.UUID       `db:"created_by" json:"created_by"`
+	CreatedAt         time.Time        `db:"created_at" json:"created_at"`
+	CompletedAt       *time.Time       `db:"completed_at" json:"completed_at"`
 }
 
 // LLMModel represents a saved LLM model configuration bound to a provider
@@ -253,19 +277,20 @@ type LLMModel struct {
 
 // EvaluationConfig represents a saved evaluation pipeline preset configuration
 type EvaluationConfig struct {
-	ID                  uuid.UUID `db:"id" json:"id"`
-	ProjectID           uuid.UUID `db:"project_id" json:"project_id"`
-	Name                string    `db:"name" json:"name" validate:"required"`
-	Description         string    `db:"description" json:"description"`
-	SystemPromptID      uuid.UUID `db:"system_prompt_id" json:"system_prompt_id" validate:"required"`
-	EvaluationPromptID  uuid.UUID `db:"evaluation_prompt_id" json:"evaluation_prompt_id" validate:"required"`
-	TargetProviderID    uuid.UUID `db:"target_provider_id" json:"target_provider_id" validate:"required"`
-	TargetModel         string    `db:"target_model" json:"target_model" validate:"required"`
-	EvaluatorProviderID uuid.UUID `db:"evaluator_provider_id" json:"evaluator_provider_id" validate:"required"`
-	EvaluatorModel      string    `db:"evaluator_model" json:"evaluator_model" validate:"required"`
-	PassThreshold       float64   `db:"pass_threshold" json:"pass_threshold" validate:"required,gte=0,lte=1"`
-	CreatedBy           uuid.UUID `db:"created_by" json:"created_by"`
-	UpdatedBy           uuid.UUID `db:"updated_by" json:"updated_by"`
-	CreatedAt           time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt           time.Time `db:"updated_at" json:"updated_at"`
+	ID                  uuid.UUID         `db:"id" json:"id"`
+	ProjectID           uuid.UUID         `db:"project_id" json:"project_id"`
+	Name                string            `db:"name" json:"name" validate:"required"`
+	Description         string            `db:"description" json:"description"`
+	SystemPromptID      uuid.UUID         `db:"system_prompt_id" json:"system_prompt_id" validate:"required"`
+	EvaluationPromptID  uuid.UUID         `db:"evaluation_prompt_id" json:"evaluation_prompt_id" validate:"required"`
+	TargetProviderID    uuid.UUID         `db:"target_provider_id" json:"target_provider_id" validate:"required"`
+	TargetModel         string            `db:"target_model" json:"target_model" validate:"required"`
+	EvaluatorProviderID uuid.UUID         `db:"evaluator_provider_id" json:"evaluator_provider_id" validate:"required"`
+	EvaluatorModel      string            `db:"evaluator_model" json:"evaluator_model" validate:"required"`
+	PassThreshold       float64           `db:"pass_threshold" json:"pass_threshold" validate:"required,gte=0,lte=1"`
+	AdvancedSettings    *AdvancedSettings `db:"advanced_settings" json:"advanced_settings"`
+	CreatedBy           uuid.UUID         `db:"created_by" json:"created_by"`
+	UpdatedBy           uuid.UUID         `db:"updated_by" json:"updated_by"`
+	CreatedAt           time.Time         `db:"created_at" json:"created_at"`
+	UpdatedAt           time.Time         `db:"updated_at" json:"updated_at"`
 }

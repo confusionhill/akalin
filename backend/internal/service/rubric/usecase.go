@@ -32,6 +32,7 @@ type CalibrateRubricRequest struct {
 	BasePromptID       *uuid.UUID                    `json:"base_prompt_id"`
 	CustomInstructions string                        `json:"custom_instructions"`
 	Rows               []evaluator.RubricTrainingRow `json:"rows"`
+	AdvancedSettings   *models.AdvancedSettings      `json:"advanced_settings"`
 }
 
 type Usecase interface {
@@ -120,7 +121,7 @@ func (u *usecase) RefineEvaluationPrompt(ctx context.Context, projectID, runID, 
 	asyncCtx, cancel := context.WithCancel(context.Background())
 	worker.StoreActiveRubricDraft(draftID, cancel)
 
-	go u.generateRubricDraftAsync(asyncCtx, draftID, *evaluatorProvider, run.EvaluatorModel, existingRubric, req.CustomInstructions, rows)
+	go u.generateRubricDraftAsync(asyncCtx, draftID, *evaluatorProvider, run.EvaluatorModel, existingRubric, req.CustomInstructions, rows, nil)
 
 	return draftID, nil
 }
@@ -154,7 +155,7 @@ func (u *usecase) CalibrateEvaluationPrompt(ctx context.Context, projectID, user
 	asyncCtx, cancel := context.WithCancel(context.Background())
 	worker.StoreActiveRubricDraft(draftID, cancel)
 
-	go u.generateRubricDraftAsync(asyncCtx, draftID, *evaluatorProvider, req.Model, existingRubric, req.CustomInstructions, req.Rows)
+	go u.generateRubricDraftAsync(asyncCtx, draftID, *evaluatorProvider, req.Model, existingRubric, req.CustomInstructions, req.Rows, req.AdvancedSettings)
 
 	return draftID, nil
 }
@@ -187,33 +188,10 @@ func (u *usecase) RetryRubricDraft(ctx context.Context, draftID, projectID uuid.
 
 	var req CalibrateRubricRequest
 	if err := json.Unmarshal(*draft.Payload, &req); err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, fmt.Errorf("failed to unmarshal draft payload: %w", err)
 	}
 
-	evaluatorProvider, err := u.repo.GetProviderConfig(ctx, req.ProviderID)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	var existingRubric string
-	if req.BasePromptID != nil {
-		basePrompt, err := u.repo.GetBasePrompt(ctx, *req.BasePromptID, projectID)
-		if err == nil {
-			existingRubric = basePrompt.Content
-		}
-	}
-
-	err = u.repo.UpdateDraftStatus(ctx, draftID, "pending", nil)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	asyncCtx, cancel := context.WithCancel(context.Background())
-	worker.StoreActiveRubricDraft(draftID, cancel)
-
-	go u.generateRubricDraftAsync(asyncCtx, draftID, *evaluatorProvider, req.Model, existingRubric, req.CustomInstructions, req.Rows)
-
-	return draftID, nil
+	return u.CalibrateEvaluationPrompt(ctx, projectID, *draft.CreatedBy, req)
 }
 
 func (u *usecase) CancelRubricDraft(ctx context.Context, draftID, projectID uuid.UUID) (bool, error) {
@@ -227,7 +205,7 @@ func (u *usecase) CancelRubricDraft(ctx context.Context, draftID, projectID uuid
 	return cancelled, nil
 }
 
-func (u *usecase) generateRubricDraftAsync(ctx context.Context, draftID uuid.UUID, provider models.ProviderConfig, model, existingRubric, customInstructions string, rows []evaluator.RubricTrainingRow) {
+func (u *usecase) generateRubricDraftAsync(ctx context.Context, draftID uuid.UUID, provider models.ProviderConfig, model, existingRubric, customInstructions string, rows []evaluator.RubricTrainingRow, adv *models.AdvancedSettings) {
 	defer worker.DeleteActiveRubricDraft(draftID)
 
 	err := u.repo.UpdateDraftStatus(ctx, draftID, "running", nil)
@@ -237,7 +215,7 @@ func (u *usecase) generateRubricDraftAsync(ctx context.Context, draftID uuid.UUI
 	}
 
 	client := evaluator.NewLLMClient(provider.BaseURL, provider.APIKey, provider.CustomHeaders)
-	draftContent, err := evaluator.GenerateRefinedRubric(ctx, client, model, existingRubric, customInstructions, rows)
+	draftContent, err := evaluator.GenerateRefinedRubric(ctx, client, model, existingRubric, customInstructions, rows, adv)
 
 	if err != nil {
 		if ctx.Err() != nil {

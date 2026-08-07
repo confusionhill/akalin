@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, CheckCircle2, Loader2, RotateCw, Trash2, Wrench, XCircle, Activity, User, Bot, Zap, ChevronDown, ChevronRight, Clock, Sparkles } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Loader2, RotateCw, Trash2, Wrench, XCircle, Activity, User, Bot, Zap, ChevronDown, ChevronRight, Clock, Sparkles, SlidersHorizontal } from "lucide-react"
 
 import { toast } from "sonner"
 
@@ -42,6 +42,7 @@ const statusVariant: Record<
   running: "info",
   completed: "success",
   failed: "destructive",
+  cancelled: "destructive",
 }
 
 export function EvaluationDetailPage() {
@@ -263,6 +264,36 @@ export function EvaluationDetailPage() {
               )}
             </SummaryCard>
           </div>
+
+          {run.advanced_settings && (
+            <Card className="bg-muted/40">
+              <CardContent className="flex flex-wrap items-center gap-2 py-3 text-xs">
+                <span className="font-semibold text-muted-foreground flex items-center gap-1.5 mr-1">
+                  <SlidersHorizontal className="size-3.5 text-primary" /> Advanced Settings:
+                </span>
+                {run.advanced_settings.temperature !== undefined && (
+                  <Badge variant="outline" className="bg-background font-mono">
+                    temperature: {run.advanced_settings.temperature}
+                  </Badge>
+                )}
+                {run.advanced_settings.top_p !== undefined && (
+                  <Badge variant="outline" className="bg-background font-mono">
+                    top_p: {run.advanced_settings.top_p}
+                  </Badge>
+                )}
+                {run.advanced_settings.top_k !== undefined && (
+                  <Badge variant="outline" className="bg-background font-mono">
+                    top_k: {run.advanced_settings.top_k}
+                  </Badge>
+                )}
+                {run.advanced_settings.max_tokens !== undefined && (
+                  <Badge variant="outline" className="bg-background font-mono">
+                    max_tokens: {run.advanced_settings.max_tokens}
+                  </Badge>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {run.status === "failed" && run.failure_reason && (
             <Card className="border-destructive/40 bg-destructive/5">
