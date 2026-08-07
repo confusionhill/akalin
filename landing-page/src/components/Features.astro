@@ -155,10 +155,6 @@ const features = [
 <section id="features" class="py-24 bg-background relative border-t">
   <div class="container mx-auto px-4 md:px-8">
     <div class="text-center mb-16 max-w-3xl mx-auto">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-mono text-primary mb-4">
-        <Sparkles class="size-3.5" />
-        SYSTEM CAPABILITIES
-      </div>
       <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4">
         Evaluate LLM Prompts with Precision Engineering
       </h2>
@@ -215,7 +211,7 @@ const features = [
 
             <div class="flex items-center justify-between gap-4 mb-6">
               <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20 text-xs font-mono font-medium text-primary">
-                <feature.icon class="size-3.5" />
+                <feature.icon className="size-3.5" />
                 {feature.badge}
               </span>
               <span class="text-xs font-mono text-muted-foreground">#{feature.id}</span>
@@ -233,7 +229,7 @@ const features = [
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
               {feature.highlights.map((highlight) => (
                 <div class="flex items-center gap-2 text-xs font-medium text-foreground bg-muted/40 p-2.5 rounded-lg border border-border/50">
-                  <CheckCircle2 class="size-4 text-primary shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>{highlight}</span>
                 </div>
               ))}
