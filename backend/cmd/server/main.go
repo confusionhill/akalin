@@ -10,9 +10,17 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/config"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/auth"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/db"
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/handlers"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/evaluation"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/llmmodel"
 	authMW "github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/middleware"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/project"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/prompt"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/provider"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/rubric"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/testcase"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/tool"
 	valBridge "github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/validator"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/worker"
 )
@@ -57,87 +65,121 @@ func main() {
 	// Auth middleware - protects all routes except login/register
 	authMiddleware := authMW.NewAuthMiddleware()
 
-	// Register Routes
-	h := handlers.NewHandler(cfg, dbConn)
+	// Initialize Domain Repositories, Usecases & Handlers
+	authRepo := auth.NewRepository(dbConn)
+	authUsecase := auth.NewUsecase(authRepo, cfg)
+	authHandler := auth.NewHandler(authUsecase, cfg)
+
+	projectRepo := project.NewRepository(dbConn)
+	projectUsecase := project.NewUsecase(projectRepo)
+	projectHandler := project.NewHandler(projectUsecase, authHandler)
+
+	promptRepo := prompt.NewRepository(dbConn)
+	promptUsecase := prompt.NewUsecase(promptRepo)
+	promptHandler := prompt.NewHandler(promptUsecase, authHandler)
+
+	testcaseRepo := testcase.NewRepository(dbConn)
+	testcaseUsecase := testcase.NewUsecase(testcaseRepo)
+	testcaseHandler := testcase.NewHandler(testcaseUsecase, authHandler)
+
+	evalRepo := evaluation.NewRepository(dbConn)
+	evalUsecase := evaluation.NewUsecase(evalRepo)
+	evalHandler := evaluation.NewHandler(evalUsecase, authHandler)
+
+	rubricRepo := rubric.NewRepository(dbConn)
+	rubricUsecase := rubric.NewUsecase(rubricRepo)
+	rubricHandler := rubric.NewHandler(rubricUsecase, authHandler)
+
+	providerRepo := provider.NewRepository(dbConn)
+	providerUsecase := provider.NewUsecase(providerRepo)
+	providerHandler := provider.NewHandler(providerUsecase, authHandler)
+
+	toolRepo := tool.NewRepository(dbConn)
+	toolUsecase := tool.NewUsecase(toolRepo)
+	toolHandler := tool.NewHandler(toolUsecase, authHandler)
+
+	llmmodelRepo := llmmodel.NewRepository(dbConn)
+	llmmodelUsecase := llmmodel.NewUsecase(llmmodelRepo)
+	llmmodelHandler := llmmodel.NewHandler(llmmodelUsecase, authHandler)
 
 	api := e.Group("/api")
 
 	// Authentication
 	authGroup := api.Group("/auth")
-	authGroup.POST("/login", h.Login)
-	authGroup.POST("/register", h.Register)
+	authGroup.POST("/login", authHandler.Login)
+	authGroup.POST("/register", authHandler.Register)
 
 	// User Settings
 	userGroup := api.Group("/users/me", authMiddleware.RequireAuth)
-	userGroup.PUT("/profile", h.UpdateProfile)
-	userGroup.PUT("/password", h.UpdatePassword)
+	userGroup.PUT("/profile", authHandler.UpdateProfile)
+	userGroup.PUT("/password", authHandler.UpdatePassword)
 
 	// Projects
 	projectGroup := api.Group("/projects", authMiddleware.RequireAuth)
-	projectGroup.GET("", h.GetProjects)
-	projectGroup.POST("", h.CreateProject)
-	projectGroup.GET("/:id", h.GetProject)
-	projectGroup.PUT("/:id", h.UpdateProject)
+	projectGroup.GET("", projectHandler.GetProjects)
+	projectGroup.POST("", projectHandler.CreateProject)
+	projectGroup.GET("/:id", projectHandler.GetProject)
+	projectGroup.PUT("/:id", projectHandler.UpdateProject)
 
 	// System Prompts
-	projectGroup.GET("/:id/prompts", h.GetSystemPrompts)
-	projectGroup.POST(":id/prompts", h.CreateSystemPrompt)
-	projectGroup.PUT("/:id/prompts/:prompt_id", h.UpdateSystemPrompt)
+	projectGroup.GET("/:id/prompts", promptHandler.GetSystemPrompts)
+	projectGroup.POST(":id/prompts", promptHandler.CreateSystemPrompt)
+	projectGroup.PUT("/:id/prompts/:prompt_id", promptHandler.UpdateSystemPrompt)
 
 	// Evaluation Prompts
-	projectGroup.GET("/:id/evaluation-prompts", h.GetEvaluationPrompts)
-	projectGroup.POST(":id/evaluation-prompts", h.CreateEvaluationPrompt)
-	projectGroup.PUT("/:id/evaluation-prompts/:prompt_id", h.UpdateEvaluationPrompt)
+	projectGroup.GET("/:id/evaluation-prompts", promptHandler.GetEvaluationPrompts)
+	projectGroup.POST(":id/evaluation-prompts", promptHandler.CreateEvaluationPrompt)
+	projectGroup.PUT("/:id/evaluation-prompts/:prompt_id", promptHandler.UpdateEvaluationPrompt)
 
 	// Test Cases
-	projectGroup.GET("/:id/test-cases", h.GetTestCases)
-	projectGroup.POST(":id/test-cases", h.CreateTestCase)
-	projectGroup.PUT("/:id/test-cases/:tc_id", h.UpdateTestCase)
-	projectGroup.DELETE("/:id/test-cases/:tc_id", h.DeleteTestCase)
+	projectGroup.GET("/:id/test-cases", testcaseHandler.GetTestCases)
+	projectGroup.POST(":id/test-cases", testcaseHandler.CreateTestCase)
+	projectGroup.PUT("/:id/test-cases/:tc_id", testcaseHandler.UpdateTestCase)
+	projectGroup.DELETE("/:id/test-cases/:tc_id", testcaseHandler.DeleteTestCase)
 
 	// Evaluations
-	projectGroup.GET("/:id/evaluations", h.GetEvaluations)
-	projectGroup.POST("/:id/evaluations", h.CreateEvaluation)
-	projectGroup.GET("/:id/evaluations/:run_id", h.GetEvaluationDetails)
-	projectGroup.POST("/:id/evaluations/:run_id/cancel", h.CancelEvaluation)
-	projectGroup.DELETE("/:id/evaluations/:run_id", h.DeleteEvaluation)
+	projectGroup.GET("/:id/evaluations", evalHandler.GetEvaluations)
+	projectGroup.POST("/:id/evaluations", evalHandler.CreateEvaluation)
+	projectGroup.GET("/:id/evaluations/:run_id", evalHandler.GetEvaluationDetails)
+	projectGroup.POST("/:id/evaluations/:run_id/cancel", evalHandler.CancelEvaluation)
+	projectGroup.DELETE("/:id/evaluations/:run_id", evalHandler.DeleteEvaluation)
 
 	// Rubric Auto-Refinement
-	projectGroup.POST("/:id/evaluations/:run_id/refine-rubric", h.RefineEvaluationPrompt)
-	projectGroup.POST("/:id/calibrate-rubric", h.CalibrateEvaluationPrompt)
-	projectGroup.GET("/:id/rubric-drafts", h.GetRubricDrafts)
-	projectGroup.GET("/:id/rubric-drafts/:draft_id", h.GetRubricDraft)
-	projectGroup.POST("/:id/rubric-drafts/:draft_id/cancel", h.CancelRubricDraft)
-	projectGroup.POST("/:id/rubric-drafts/:draft_id/retry", h.RetryRubricDraft)
-	projectGroup.DELETE("/:id/rubric-drafts/:draft_id", h.DeleteRubricDraft)
+	projectGroup.POST("/:id/evaluations/:run_id/refine-rubric", rubricHandler.RefineEvaluationPrompt)
+	projectGroup.POST("/:id/calibrate-rubric", rubricHandler.CalibrateEvaluationPrompt)
+	projectGroup.GET("/:id/rubric-drafts", rubricHandler.GetRubricDrafts)
+	projectGroup.GET("/:id/rubric-drafts/:draft_id", rubricHandler.GetRubricDraft)
+	projectGroup.POST("/:id/rubric-drafts/:draft_id/cancel", rubricHandler.CancelRubricDraft)
+	projectGroup.POST("/:id/rubric-drafts/:draft_id/retry", rubricHandler.RetryRubricDraft)
+	projectGroup.DELETE("/:id/rubric-drafts/:draft_id", rubricHandler.DeleteRubricDraft)
 
 	// Providers (BYOK) — tenant-scoped (global)
 	providerGroup := api.Group("/providers", authMiddleware.RequireAuth)
-	providerGroup.GET("", h.GetProviders)
-	providerGroup.POST("", h.CreateProvider)
-	providerGroup.PUT("/:provider_id", h.UpdateProvider)
-	providerGroup.DELETE("/:provider_id", h.DeleteProvider)
+	providerGroup.GET("", providerHandler.GetProviders)
+	providerGroup.POST("", providerHandler.CreateProvider)
+	providerGroup.PUT("/:provider_id", providerHandler.UpdateProvider)
+	providerGroup.DELETE("/:provider_id", providerHandler.DeleteProvider)
 
 	// Global Tools — tenant-scoped
 	toolsGroup := api.Group("/tools", authMiddleware.RequireAuth)
-	toolsGroup.GET("", h.GetTools)
-	toolsGroup.POST("", h.CreateTool)
-	toolsGroup.PUT("/:tool_id", h.UpdateTool)
-	toolsGroup.DELETE("/:tool_id", h.DeleteTool)
+	toolsGroup.GET("", toolHandler.GetTools)
+	toolsGroup.POST("", toolHandler.CreateTool)
+	toolsGroup.PUT("/:tool_id", toolHandler.UpdateTool)
+	toolsGroup.DELETE("/:tool_id", toolHandler.DeleteTool)
 
 	// LLM Models — tenant-scoped (global)
 	modelsGroup := api.Group("/models", authMiddleware.RequireAuth)
-	modelsGroup.GET("", h.GetLLMModels)
-	modelsGroup.POST("", h.CreateLLMModel)
-	modelsGroup.PUT("/:model_id", h.UpdateLLMModel)
-	modelsGroup.DELETE("/:model_id", h.DeleteLLMModel)
-	modelsGroup.POST("/test", h.TestLLMModel)
+	modelsGroup.GET("", llmmodelHandler.GetLLMModels)
+	modelsGroup.POST("", llmmodelHandler.CreateLLMModel)
+	modelsGroup.PUT("/:model_id", llmmodelHandler.UpdateLLMModel)
+	modelsGroup.DELETE("/:model_id", llmmodelHandler.DeleteLLMModel)
+	modelsGroup.POST("/test", llmmodelHandler.TestLLMModel)
 
 	// Project Tools
-	projectGroup.GET("/:id/tools", h.GetProjectTools)
-	projectGroup.PUT("/:id/tools", h.UpdateProjectTools)
+	projectGroup.GET("/:id/tools", toolHandler.GetProjectTools)
+	projectGroup.PUT("/:id/tools", toolHandler.UpdateProjectTools)
 
-	api.GET("/rubric-template.csv", h.DownloadCSVTemplate)
+	api.GET("/rubric-template.csv", rubricHandler.DownloadCSVTemplate)
 
 	// Start Background Worker Pool for Evaluations
 	go worker.StartEvaluationWorkers(dbConn, 3)
