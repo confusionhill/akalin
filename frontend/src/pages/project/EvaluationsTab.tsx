@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowRight, CheckIcon, Copy, Edit, Loader2, Play, Plus, Save, Settings, SlidersHorizontal, Trash2, Sparkles, Wrench, XCircle } from "lucide-react"
+import { ArrowRight, CheckIcon, Copy, Edit, Loader2, Play, Plus, Save, Settings, SlidersHorizontal, Trash2, Wrench, XCircle } from "lucide-react"
 
 import { toast } from "sonner"
 
@@ -64,36 +64,6 @@ const statusVariant: Record<
   completed: "success",
   failed: "destructive",
   cancelled: "destructive",
-}
-
-function calculateModelStats(runs: EvaluationRun[]) {
-  const completedRuns = runs.filter(r => r.status === "completed" && r.average_score !== null)
-
-  const stats = new Map<string, {
-    model: string
-    runs: number
-    scores: number[]
-  }>()
-
-  completedRuns.forEach(run => {
-    const model = run.model_used
-    if (!stats.has(model)) {
-      stats.set(model, { model, runs: 0, scores: [] })
-    }
-    const stat = stats.get(model)!
-    stat.runs++
-    stat.scores.push(run.average_score!)
-  })
-
-  return Array.from(stats.values())
-    .map(({ model, runs, scores }) => ({
-      model,
-      runs,
-      averageScore: scores.reduce((a, b) => a + b, 0) / scores.length,
-      bestScore: Math.max(...scores),
-      worstScore: Math.min(...scores),
-    }))
-    .sort((a, b) => b.averageScore! - a.averageScore!)
 }
 
 export function EvaluationsTab({ projectId }: { projectId: string }) {
@@ -1134,52 +1104,7 @@ export function EvaluationsTab({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      {runs !== null && runs.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Sparkles className="size-4" />
-              Model Performance Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {calculateModelStats(runs).length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {calculateModelStats(runs).map((stat) => (
-                  <div
-                    key={stat.model}
-                    className="flex flex-col gap-1 rounded-lg border p-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-sm">{stat.model}</span>
-                      <Badge variant="outline">
-                        {stat.runs} run{stat.runs !== 1 ? "s" : ""}
-                      </Badge>
-                    </div>
-                    <div className="text-muted-foreground text-xs">
-                      Average: <span className="font-medium">{stat.averageScore?.toFixed(2)}</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className="bg-primary h-2 rounded-full transition-all"
-                        style={{ width: `${(stat.averageScore || 0) * 100}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Best: {stat.bestScore?.toFixed(2)}</span>
-                      <span>Worst: {stat.worstScore?.toFixed(2)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm text-center py-4">
-                No completed evaluations to display
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+
 
       <ConfirmDialog
         open={deleteId !== null}

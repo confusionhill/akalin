@@ -328,3 +328,11 @@ export interface CreateEvaluationConfigInput {
   pass_threshold: number
   advanced_settings?: AdvancedSettings | null
 }
+
+export interface ModelPerformanceSummary {
+  model: string
+  runs: number
+  averageScore: number
+  bestScore: number
+  worstScore: number
+}

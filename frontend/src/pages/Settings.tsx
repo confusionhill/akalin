@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react"
-import { Loader2, UserPlus, Shield, ShieldAlert, Trash2, Copy, Check, Ticket, User, Clock, Calendar } from "lucide-react"
+import { useSearchParams } from "react-router-dom"
+import { Loader2, UserPlus, Shield, ShieldAlert, Trash2, Copy, Check, Ticket, User, Clock, Calendar, ShieldCheck, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAuth } from "@/context/auth-context"
@@ -14,7 +15,14 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -45,6 +53,21 @@ export interface WorkspaceMemberUI {
 
 export function SettingsPage() {
   const { auth, updateAuth } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get("tab") || "profile"
+
+  const sections = [
+    { id: "profile", label: "Profile", icon: User },
+    { id: "security", label: "Security", icon: ShieldCheck },
+    { id: "members", label: "Workspace Members", icon: Users },
+  ]
+
+  const setActiveTab = (val: string) => {
+    setSearchParams((prev) => {
+      prev.set("tab", val)
+      return prev
+    })
+  }
 
   // Profile Form State
   const [email, setEmail] = useState(auth?.email ?? "")
@@ -88,8 +111,8 @@ export function SettingsPage() {
               fullName: m.full_name,
               handle: m.handle,
               email: m.email,
-              role: m.accessRole >= 100 ? "Owner" : m.accessRole >= 60 ? "Admin" : "Member",
-              accessRole: m.accessRole,
+              role: m.access_role >= 100 ? "Owner" : m.access_role >= 60 ? "Admin" : "Member",
+              accessRole: m.access_role,
               joinedAt: new Date(m.joined_at).toLocaleDateString(),
             }))
           )
@@ -202,15 +225,53 @@ export function SettingsPage() {
       </header>
 
       <div className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-4xl">
-          <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="mb-6">
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
-              <TabsTrigger value="members">Workspace Members</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="profile">
+        <div className="mx-auto max-w-5xl flex flex-col md:flex-row gap-8 items-start relative">
+          
+          {/* Mobile sticky header/selector */}
+          <div className="md:hidden sticky top-0 z-40 bg-background/95 backdrop-blur border-b py-3 mb-4 -mx-4 px-4 w-[calc(100%+2rem)] flex items-center justify-between">
+            <span className="text-sm font-semibold text-muted-foreground">Section:</span>
+            <Select value={activeTab} onValueChange={(val) => setActiveTab(val)}>
+              <SelectTrigger className="w-[180px] bg-background">
+                <SelectValue placeholder="Select section" />
+              </SelectTrigger>
+              <SelectContent>
+                {sections.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Desktop Sidebar */}
+          <aside className="hidden md:block w-64 shrink-0 sticky top-6 space-y-1 bg-card border rounded-lg p-3 shadow-xs">
+            <div className="font-semibold text-xs text-muted-foreground uppercase tracking-wider px-3 mb-2">
+              Settings Navigation
+            </div>
+            {sections.map((s) => {
+              const isActive = activeTab === s.id
+              const Icon = s.icon
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setActiveTab(s.id)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  <Icon className="size-4" />
+                  {s.label}
+                </button>
+              )
+            })}
+          </aside>
+
+          <div className="flex-1 min-w-0 w-full">
+            {activeTab === "profile" && (
               <Card>
                 <CardHeader>
                   <CardTitle>Profile</CardTitle>
@@ -260,9 +321,9 @@ export function SettingsPage() {
                   </form>
                 </CardContent>
               </Card>
-            </TabsContent>
+            )}
 
-            <TabsContent value="security">
+            {activeTab === "security" && (
               <Card>
                 <CardHeader>
                   <CardTitle>Password</CardTitle>
@@ -313,9 +374,9 @@ export function SettingsPage() {
                   </form>
                 </CardContent>
               </Card>
-            </TabsContent>
+            )}
 
-            <TabsContent value="members">
+            {activeTab === "members" && (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                   <div>
@@ -405,8 +466,8 @@ export function SettingsPage() {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
-          </Tabs>
+            )}
+          </div>
         </div>
       </div>
 

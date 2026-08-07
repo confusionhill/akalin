@@ -31,12 +31,21 @@ type RunDetailsResponse struct {
 	Results []DetailedResult `json:"results"`
 }
 
+type ModelPerformanceSummary struct {
+	Model        string  `db:"model" json:"model"`
+	Runs         int     `db:"runs" json:"runs"`
+	AverageScore float64 `db:"average_score" json:"averageScore"`
+	BestScore    float64 `db:"best_score" json:"bestScore"`
+	WorstScore   float64 `db:"worst_score" json:"worstScore"`
+}
+
 type Repository interface {
 	GetEvaluations(ctx context.Context, projectID uuid.UUID) ([]models.EvaluationRun, error)
 	CreateEvaluation(ctx context.Context, req models.EvaluationRun, projectID, userID uuid.UUID) (*models.EvaluationRun, error)
 	CancelEvaluation(ctx context.Context, runID, projectID uuid.UUID) (bool, error)
 	GetEvaluationDetails(ctx context.Context, runID, projectID uuid.UUID) (*RunDetailsResponse, error)
 	DeleteEvaluation(ctx context.Context, runID, projectID uuid.UUID) error
+	GetModelPerformanceSummary(ctx context.Context, projectID uuid.UUID) ([]ModelPerformanceSummary, error)
 
 	// Evaluation Config Presets
 	GetConfigs(ctx context.Context, projectID uuid.UUID) ([]models.EvaluationConfig, error)
@@ -64,6 +73,30 @@ func (r *repository) GetEvaluations(ctx context.Context, projectID uuid.UUID) ([
 		runs = []models.EvaluationRun{}
 	}
 	return runs, nil
+}
+
+func (r *repository) GetModelPerformanceSummary(ctx context.Context, projectID uuid.UUID) ([]ModelPerformanceSummary, error) {
+	var summary []ModelPerformanceSummary
+	query := `
+		SELECT 
+			model_used as model, 
+			COUNT(id) as runs, 
+			AVG(average_score) as average_score, 
+			MAX(average_score) as best_score, 
+			MIN(average_score) as worst_score 
+		FROM evaluation_runs 
+		WHERE project_id = $1 AND status = 'completed' AND average_score IS NOT NULL 
+		GROUP BY model_used 
+		ORDER BY average_score DESC
+	`
+	err := r.db.SelectContext(ctx, &summary, query, projectID)
+	if err != nil {
+		return nil, err
+	}
+	if summary == nil {
+		summary = []ModelPerformanceSummary{}
+	}
+	return summary, nil
 }
 
 func (r *repository) CreateEvaluation(ctx context.Context, req models.EvaluationRun, projectID, userID uuid.UUID) (*models.EvaluationRun, error) {

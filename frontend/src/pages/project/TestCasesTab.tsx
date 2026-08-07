@@ -114,14 +114,14 @@ export function TestCasesTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="font-medium">Test cases</h3>
           <p className="text-muted-foreground text-sm">
             Input/expected pairs used to grade prompt runs.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={openCreate}>
+        <Button variant="outline" size="sm" onClick={openCreate} className="self-start sm:self-auto">
           <Plus className="size-4" />
           Add test case
         </Button>

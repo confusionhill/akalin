@@ -1,5 +1,3 @@
-import * as React from "react"
-
 interface FormattedResultProps {
   result: string;
   parameters?: any;

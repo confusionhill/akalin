@@ -41,6 +41,24 @@ func (h *Handler) GetEvaluations(c echo.Context) error {
 	return c.JSON(http.StatusOK, runs)
 }
 
+func (h *Handler) GetEvaluationsSummary(c echo.Context) error {
+	_, _, _, err := h.authHandler.GetAuth(c)
+	if err != nil {
+		return err
+	}
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid project ID")
+	}
+
+	summary, err := h.usecase.GetModelPerformanceSummary(c.Request().Context(), projectID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, summary)
+}
+
 func (h *Handler) CreateEvaluation(c echo.Context) error {
 	_, userID, _, err := h.authHandler.GetAuth(c)
 	if err != nil {

@@ -148,6 +148,7 @@ func main() {
 
 	// Evaluations
 	projectGroup.GET("/:id/evaluations", evalHandler.GetEvaluations)
+	projectGroup.GET("/:id/evaluations-summary", evalHandler.GetEvaluationsSummary)
 	projectGroup.POST("/:id/evaluations", evalHandler.CreateEvaluation)
 	projectGroup.GET("/:id/evaluations/:run_id", evalHandler.GetEvaluationDetails)
 	projectGroup.POST("/:id/evaluations/:run_id/cancel", evalHandler.CancelEvaluation)

@@ -167,12 +167,12 @@ export function PromptVersionsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="font-medium">{title}</h3>
           <p className="text-muted-foreground text-sm">{description}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {isEvaluationPrompt && items !== null && (
             <Button variant="outline" size="sm" onClick={() => setCalibrateModalOpen(true)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200">
               <Settings2 className="size-4 text-indigo-500" />

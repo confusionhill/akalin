@@ -83,8 +83,8 @@ function authHeaders(): Record<string, string> {
     headers["Authorization"] = `Bearer ${token}`
   }
   if (auth) {
-    headers["X-Tenant-ID"] = auth.tenantId
-    headers["X-User-ID"] = auth.userId
+    if (auth.tenantId) headers["X-Tenant-ID"] = auth.tenantId
+    if (auth.userId) headers["X-User-ID"] = auth.userId
   }
   return headers
 }

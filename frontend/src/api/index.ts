@@ -22,6 +22,7 @@ import type {
   Tool,
   UpdateProfileInput,
   UpdatePasswordInput,
+  ModelPerformanceSummary,
 } from "./types"
 
 export const authApi = {
@@ -38,7 +39,7 @@ export const authApi = {
   getTenantUsers: () =>
     http.get<TenantUserResponse[]>("/auth/tenant/users"),
   removeTenantUser: (userId: string) =>
-    http.delete<void>(`/auth/tenant/users/${userId}`),
+    http.del<void>(`/auth/tenant/users/${userId}`),
   createInvitation: (email: string, expires_in?: string, custom_expires_at?: string) =>
     http.post<TenantInvitationResponse>("/auth/tenant/invites", { email, expires_in, custom_expires_at }),
   joinTenant: (token: string) =>
@@ -140,6 +141,8 @@ export const evaluationsApi = {
     http.del<void>(`/projects/${projectId}/evaluations/${runId}`),
   cancel: (projectId: string, runId: string) =>
     http.post<void>(`/projects/${projectId}/evaluations/${runId}/cancel`, {}),
+  summary: (projectId: string) =>
+    http.get<ModelPerformanceSummary[]>(`/projects/${projectId}/evaluations-summary`),
 }
 
 export const evaluationConfigsApi = {

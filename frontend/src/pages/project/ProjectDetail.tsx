@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
-import { ArrowLeft, Loader2, Pencil, Terminal, FileText, CheckSquare, Wrench, BarChart3, ChevronDown } from "lucide-react"
+import { ArrowLeft, Loader2, Pencil, Terminal, FileText, CheckSquare, Wrench, BarChart3, TrendingUp } from "lucide-react"
 import { toast } from "sonner"
 
 import { evaluationPromptsApi, projectsApi, systemPromptsApi } from "@/api"
@@ -17,12 +17,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -37,6 +31,7 @@ import { TestCasesTab } from "@/pages/project/TestCasesTab"
 import { cn, formatRelativeTime } from "@/lib/utils"
 
 import { ProjectToolsTab } from "@/pages/project/ProjectTools"
+import { ModelPerformanceTab } from "@/pages/project/ModelPerformanceTab"
 
 export function ProjectDetailPage() {
   const { id = "" } = useParams()
@@ -76,6 +71,7 @@ export function ProjectDetailPage() {
     { id: "cases", label: "Test cases", icon: CheckSquare },
     { id: "tools", label: "Tools", icon: Wrench },
     { id: "evaluations", label: "Evaluations", icon: BarChart3 },
+    { id: "performance", label: "Model Performance", icon: TrendingUp },
   ]
 
   const setActiveTab = (val: string) => {
@@ -264,6 +260,8 @@ export function ProjectDetailPage() {
             {activeTab === "tools" && <ProjectToolsTab projectId={id} />}
 
             {activeTab === "evaluations" && <EvaluationsTab projectId={id} />}
+
+            {activeTab === "performance" && <ModelPerformanceTab projectId={id} />}
           </div>
         </div>
       )}

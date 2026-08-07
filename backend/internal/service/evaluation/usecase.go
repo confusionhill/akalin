@@ -14,6 +14,7 @@ type Usecase interface {
 	CancelEvaluation(ctx context.Context, runID, projectID uuid.UUID) (bool, error)
 	GetEvaluationDetails(ctx context.Context, runID, projectID uuid.UUID) (*RunDetailsResponse, error)
 	DeleteEvaluation(ctx context.Context, runID, projectID uuid.UUID) error
+	GetModelPerformanceSummary(ctx context.Context, projectID uuid.UUID) ([]ModelPerformanceSummary, error)
 
 	// Evaluation Config Presets
 	GetConfigs(ctx context.Context, projectID uuid.UUID) ([]models.EvaluationConfig, error)
@@ -56,6 +57,10 @@ func (u *usecase) GetEvaluationDetails(ctx context.Context, runID, projectID uui
 
 func (u *usecase) DeleteEvaluation(ctx context.Context, runID, projectID uuid.UUID) error {
 	return u.repo.DeleteEvaluation(ctx, runID, projectID)
+}
+
+func (u *usecase) GetModelPerformanceSummary(ctx context.Context, projectID uuid.UUID) ([]ModelPerformanceSummary, error) {
+	return u.repo.GetModelPerformanceSummary(ctx, projectID)
 }
 
 func (u *usecase) GetConfigs(ctx context.Context, projectID uuid.UUID) ([]models.EvaluationConfig, error) {
