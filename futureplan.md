@@ -55,6 +55,9 @@ This document outlines planned features and improvements for the LLM Evaluation 
 
 ### v1.2 - Core
 
+- [ ] Multi-Rubric Evaluations
+  - Support assigning and grading against multiple rubrics per evaluation run (e.g. Tone, Safety, Schema Compliance) with composite scoring.
+
 - [ ] Scheduled evaluations
   - Run periodic evaluations automatically (cron-style)
 
