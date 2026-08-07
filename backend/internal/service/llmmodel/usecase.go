@@ -3,7 +3,7 @@ package llmmodel
 import (
 	"context"
 
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/evaluator"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/evaluator"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
 	"github.com/google/uuid"
 )

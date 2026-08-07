@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/evaluator"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/evaluator"
 )
 
 var (

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/auth"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/auth"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"

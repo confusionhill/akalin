@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/worker"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/worker"
 	"github.com/google/uuid"
 )
 

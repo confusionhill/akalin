@@ -186,7 +186,7 @@ func RunPipeline(ctx context.Context, db *sqlx.DB, runID uuid.UUID) {
 					sysPrompt.Content, tc.InputPrompt)
 			}
 
-			log.Printf("%s building context prompt with resume=%s", casePrefix, len(memory.Resume) > 0 && memory.Resume != "")
+			log.Printf("%s building context prompt with resume=%t", casePrefix, len(memory.Resume) > 0 && memory.Resume != "")
 
 			if len(activeTools) > 0 {
 				generatedOutput, toolsCalled, trace, err = targetClient.GenerateWithTools(ctx, run.TargetModel, contextPrompt, "", activeTools, 0.0)

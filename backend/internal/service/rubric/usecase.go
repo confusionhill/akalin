@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/evaluator"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/evaluator"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/worker"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/worker"
 	"github.com/google/uuid"
 )
 

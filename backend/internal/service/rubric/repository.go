@@ -3,7 +3,7 @@ package rubric
 import (
 	"context"
 
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/evaluation"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/evaluation"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/models"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
