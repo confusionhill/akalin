@@ -202,6 +202,44 @@ export function SettingsPage() {
     }
   }
 
+  // Role Update Modal State
+  const [roleModalMember, setRoleModalMember] = useState<WorkspaceMemberUI | null>(null)
+  const [targetRole, setTargetRole] = useState<number>(0)
+  const [updatingRole, setUpdatingRole] = useState(false)
+
+  const handleRoleChangeRequest = (member: WorkspaceMemberUI, newAccessRole: number) => {
+    if (member.accessRole === newAccessRole) return
+    setRoleModalMember(member)
+    setTargetRole(newAccessRole)
+  }
+
+  const handleRoleChangeConfirm = async () => {
+    if (!roleModalMember) return
+    setUpdatingRole(true)
+    try {
+      await authApi.updateTenantUserRole(roleModalMember.id, targetRole)
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === roleModalMember.id
+            ? {
+                ...m,
+                accessRole: targetRole,
+                role: targetRole >= 100 ? "Owner" : targetRole >= 60 ? "Admin" : "Member",
+              }
+            : m
+        )
+      )
+      const actionText = targetRole === 60 ? "promoted to Admin" : "demoted to Member"
+      toast.success(`${roleModalMember.fullName} has been ${actionText}`)
+      setRoleModalMember(null)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update member role"
+      toast.error(message)
+    } finally {
+      setUpdatingRole(false)
+    }
+  }
+
   const handleRemoveMember = async (member: WorkspaceMemberUI) => {
     if (member.accessRole >= 60 && currentUserRole <= 60 && member.email !== auth?.email) {
       toast.error("Admins cannot remove other Admins. Only the workspace Owner can.")
@@ -427,21 +465,44 @@ export function SettingsPage() {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    isOwner
-                                      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                                      : isAdmin
-                                      ? "bg-violet-500/10 text-violet-600 border-violet-500/30"
-                                      : "bg-slate-500/10 text-slate-600 border-slate-500/30"
-                                  }
-                                >
-                                  {isOwner && <ShieldAlert className="mr-1 size-3" />}
-                                  {isAdmin && <Shield className="mr-1 size-3" />}
-                                  {!isOwner && !isAdmin && <User className="mr-1 size-3" />}
-                                  {member.role}
-                                </Badge>
+                                {currentUserRole >= 100 && !isOwner ? (
+                                  <Select
+                                    value={String(member.accessRole >= 60 ? 60 : 0)}
+                                    onValueChange={(val) => handleRoleChangeRequest(member, parseInt(val, 10))}
+                                  >
+                                    <SelectTrigger className="w-[120px] h-8 text-xs font-medium">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="0">
+                                        <div className="flex items-center gap-1.5 text-slate-600">
+                                          <User className="size-3.5" /> Member
+                                        </div>
+                                      </SelectItem>
+                                      <SelectItem value="60">
+                                        <div className="flex items-center gap-1.5 text-violet-600">
+                                          <Shield className="size-3.5" /> Admin
+                                        </div>
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      isOwner
+                                        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                                        : isAdmin
+                                        ? "bg-violet-500/10 text-violet-600 border-violet-500/30"
+                                        : "bg-slate-500/10 text-slate-600 border-slate-500/30"
+                                    }
+                                  >
+                                    {isOwner && <ShieldAlert className="mr-1 size-3" />}
+                                    {isAdmin && <Shield className="mr-1 size-3" />}
+                                    {!isOwner && !isAdmin && <User className="mr-1 size-3" />}
+                                    {member.role}
+                                  </Badge>
+                                )}
                               </TableCell>
                               <TableCell className="text-xs text-muted-foreground">
                                 {member.joinedAt}
@@ -577,6 +638,55 @@ export function SettingsPage() {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Role Change Warning Confirmation */}
+      <Dialog open={!!roleModalMember} onOpenChange={(open) => !open && setRoleModalMember(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="size-5 text-amber-500" />
+              {targetRole === 60 ? "Promote Member to Admin?" : "Demote Admin to Member?"}
+            </DialogTitle>
+            <DialogDescription className="text-xs pt-1 space-y-2">
+              {targetRole === 60 ? (
+                <>
+                  Are you sure you want to promote <strong className="text-foreground">{roleModalMember?.fullName}</strong> (@{roleModalMember?.handle}) to <strong>Workspace Admin</strong>?
+                  <span className="block text-muted-foreground pt-1">
+                    Admins can configure LLM providers, manage evaluation models, create project tools, and invite new members.
+                  </span>
+                </>
+              ) : (
+                <>
+                  Are you sure you want to demote <strong className="text-foreground">{roleModalMember?.fullName}</strong> (@{roleModalMember?.handle}) to <strong>Member</strong>?
+                  <span className="block text-muted-foreground pt-1">
+                    Members cannot modify workspace LLM providers or manage system-wide evaluation configurations.
+                  </span>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="pt-3 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRoleModalMember(null)}
+              disabled={updatingRole}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleRoleChangeConfirm}
+              disabled={updatingRole}
+              className={targetRole === 60 ? "bg-violet-600 hover:bg-violet-500 text-white" : "bg-amber-600 hover:bg-amber-500 text-white"}
+            >
+              {updatingRole && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {targetRole === 60 ? "Confirm Promotion" : "Confirm Demotion"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

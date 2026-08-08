@@ -114,6 +114,7 @@ func main() {
 	authGroup.GET("/tenants", authHandler.GetMyTenants, authMiddleware.RequireAuth)
 	authGroup.POST("/tenant/switch", authHandler.SwitchTenant, authMiddleware.RequireAuth)
 	authGroup.GET("/tenant/users", authHandler.GetTenantUsers, authMiddleware.RequireAuth)
+	authGroup.PUT("/tenant/users/:user_id/role", authHandler.UpdateTenantUserRole, authMiddleware.RequireAuth)
 	authGroup.DELETE("/tenant/users/:user_id", authHandler.RemoveTenantUser, authMiddleware.RequireAuth)
 	authGroup.POST("/tenant/invites", authHandler.CreateInvitation, authMiddleware.RequireAuth)
 	authGroup.POST("/tenant/join", authHandler.JoinTenant, authMiddleware.RequireAuth)

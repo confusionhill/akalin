@@ -38,6 +38,8 @@ export const authApi = {
     http.post<SessionResponse>("/auth/tenant/switch", { tenant_id }),
   getTenantUsers: () =>
     http.get<TenantUserResponse[]>("/auth/tenant/users"),
+  updateTenantUserRole: (userId: string, accessRole: number) =>
+    http.put<void>(`/auth/tenant/users/${userId}/role`, { access_role: accessRole }),
   removeTenantUser: (userId: string) =>
     http.del<void>(`/auth/tenant/users/${userId}`),
   createInvitation: (email: string, expires_in?: string, custom_expires_at?: string) =>

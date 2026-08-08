@@ -210,6 +210,36 @@ func (h *Handler) RemoveTenantUser(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func (h *Handler) UpdateTenantUserRole(c echo.Context) error {
+	tenantID, actorID, _, err := h.GetAuth(c)
+	if err != nil {
+		return err
+	}
+
+	targetUserID, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid user ID")
+	}
+
+	req := new(UpdateMemberRoleReq)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+
+	err = h.usecase.UpdateTenantUserRole(c.Request().Context(), tenantID, actorID, targetUserID, req.AccessRole)
+	if err != nil {
+		if errors.Is(err, ErrUnauthorizedAction) {
+			return echo.NewHTTPError(http.StatusForbidden, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
 func (h *Handler) CreateInvitation(c echo.Context) error {
 	tenantID, actorID, _, err := h.GetAuth(c)
 	if err != nil {

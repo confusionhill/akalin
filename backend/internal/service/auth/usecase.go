@@ -79,6 +79,10 @@ type SessionResponse struct {
 	Token      string    `json:"token"`
 }
 
+type UpdateMemberRoleReq struct {
+	AccessRole int `json:"access_role" validate:"oneof=0 60"`
+}
+
 type Usecase interface {
 	Login(ctx context.Context, req LoginReq) (*AuthResponse, error)
 	Register(ctx context.Context, req RegisterReq) (*AuthResponse, error)
@@ -87,6 +91,7 @@ type Usecase interface {
 	SwitchTenant(ctx context.Context, userID uuid.UUID, req SwitchTenantReq) (*SessionResponse, error)
 	GetTenantUsers(ctx context.Context, tenantID uuid.UUID) ([]models.TenantUserResponse, error)
 	RemoveTenantUser(ctx context.Context, tenantID, actorID, targetUserID uuid.UUID) error
+	UpdateTenantUserRole(ctx context.Context, tenantID, actorID, targetUserID uuid.UUID, accessRole int) error
 	CreateInvitation(ctx context.Context, tenantID, actorID uuid.UUID, req CreateInvitationReq) (*models.TenantInvitation, error)
 	JoinTenant(ctx context.Context, userID uuid.UUID, req JoinTenantReq) (*models.Tenant, error)
 	UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileReq) error
@@ -237,6 +242,30 @@ func (u *usecase) RemoveTenantUser(ctx context.Context, tenantID, actorID, targe
 	}
 
 	return u.repo.RemoveTenantUser(ctx, tenantID, targetUserID)
+}
+
+func (u *usecase) UpdateTenantUserRole(ctx context.Context, tenantID, actorID, targetUserID uuid.UUID, accessRole int) error {
+	// Only Owner (100) can update roles
+	actorRole, err := u.repo.GetTenantUserRole(ctx, tenantID, actorID)
+	if err != nil || actorRole < 100 {
+		return ErrUnauthorizedAction
+	}
+
+	// Cannot change role of workspace Owner
+	targetRole, err := u.repo.GetTenantUserRole(ctx, tenantID, targetUserID)
+	if err != nil {
+		return err
+	}
+	if targetRole >= 100 {
+		return ErrUnauthorizedAction
+	}
+
+	// Validate allowed target access_role values (0 = Member, 60 = Admin)
+	if accessRole != 0 && accessRole != 60 {
+		return errors.New("invalid access role value; must be 0 (Member) or 60 (Admin)")
+	}
+
+	return u.repo.UpdateTenantUserRole(ctx, tenantID, targetUserID, accessRole)
 }
 
 func (u *usecase) CreateInvitation(ctx context.Context, tenantID, actorID uuid.UUID, req CreateInvitationReq) (*models.TenantInvitation, error) {

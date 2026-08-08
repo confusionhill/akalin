@@ -26,6 +26,7 @@ type Repository interface {
 	AddUserToTenant(ctx context.Context, tenantID, userID uuid.UUID, accessRole int) error
 	UpdateUserProfile(ctx context.Context, userID uuid.UUID, email, handle, fullName string) error
 	UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error
+	UpdateTenantUserRole(ctx context.Context, tenantID, userID uuid.UUID, accessRole int) error
 }
 
 type repository struct {
@@ -207,5 +208,10 @@ func (r *repository) UpdateUserProfile(ctx context.Context, userID uuid.UUID, em
 
 func (r *repository) UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error {
 	_, err := r.db.ExecContext(ctx, "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2", passwordHash, userID)
+	return err
+}
+
+func (r *repository) UpdateTenantUserRole(ctx context.Context, tenantID, userID uuid.UUID, accessRole int) error {
+	_, err := r.db.ExecContext(ctx, "UPDATE tenant_users SET access_role = $3 WHERE tenant_id = $1 AND user_id = $2", tenantID, userID, accessRole)
 	return err
 }
