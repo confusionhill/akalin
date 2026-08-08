@@ -4,7 +4,7 @@ import {
   History,
   Target,
   Key,
-  ShieldCheck,
+  Terminal,
   CheckCircle2,
   ArrowUpRight,
   Sparkles,
@@ -129,25 +129,25 @@ const features = [
     ],
   },
   {
-    id: "granular-auditing",
-    badge: "ENTERPRISE SECURITY",
-    navTitle: "Granular Auditing",
-    navSubtitle: "Role-Based Access",
-    title: "Full Audit Trail & RBAC Controls",
+    id: "api-integration",
+    badge: "PROMPT DEPLOYMENT",
+    navTitle: "A/B Testing",
+    navSubtitle: "API Integration",
+    title: "Fetch & A/B Test Prompts via API",
     description:
-      "Track exactly who created, modified, or executed each project, prompt configuration, and evaluation run. Restrict provider settings and LLM keys to workspace administrators.",
-    icon: ShieldCheck,
+      "Decouple prompt management from your codebase. Fetch the active system prompt dynamically at runtime to instantly rollout changes, rollback regressions, and seamlessly A/B test variants across your users.",
+    icon: Terminal,
     highlights: [
-      "Role-based authorization (Owner, Admin, Member)",
-      "Comprehensive action log history",
-      "Workspace-isolated evaluations",
+      "Dynamic prompt fetching via REST API",
+      "Weighted traffic splitting (e.g., 80/20)",
+      "Zero-downtime rollouts and rollbacks",
     ],
-    previewType: "audit",
-    auditLogs: [
-      { user: "admin@akalin.space", action: "Updated Provider OpenAI Key", time: "10m ago" },
-      { user: "dev@akalin.space", action: "Triggered Batch Evaluation Run #42", time: "30m ago" },
-      { user: "pm@akalin.space", action: "Published Prompt v1.3.0", time: "2h ago" },
-    ],
+    previewType: "api",
+    apiCode: `const response = await fetch("https://api.akalin.space/v1/projects/YOUR_PROJECT_ID/active-prompt", {
+  headers: { "Authorization": "Bearer ak-YOUR_API_KEY" }
+});
+const data = await response.json();
+const systemPrompt = data.content;`
   },
 ];
 ---
@@ -349,17 +349,11 @@ const features = [
                 </div>
               )}
 
-              {feature.previewType === "audit" && (
+              {feature.previewType === "api" && (
                 <div class="space-y-2 p-1">
-                  {feature.auditLogs.map((log) => (
-                    <div class="flex items-center justify-between text-[11px] bg-background/80 p-2 rounded border border-border">
-                      <div class="flex items-center gap-2">
-                        <span class="text-primary font-semibold">{log.user}</span>
-                        <span class="text-muted-foreground">— {log.action}</span>
-                      </div>
-                        <span class="text-muted-foreground text-[10px]">{log.time}</span>
-                    </div>
-                  ))}
+                  <div class="bg-zinc-950 rounded-md p-3 overflow-x-auto text-[11px] font-mono text-green-400 border border-border leading-relaxed">
+                    <pre><code>{feature.apiCode}</code></pre>
+                  </div>
                 </div>
               )}
             </div>

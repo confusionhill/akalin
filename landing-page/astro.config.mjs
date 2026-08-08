@@ -13,7 +13,13 @@ export default defineConfig({
   integrations: [react()],
 
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    optimizeDeps: {
+      include: ['lucide-react', 'react', 'react-dom']
+    },
+    ssr: {
+      noExternal: ['lucide-react']
+    }
   },
 
   adapter: cloudflare()

@@ -1,26 +1,180 @@
 ---
-import { type CollectionEntry, getCollection, render } from 'astro:content';
-import Layout from '../../layouts/Layout.astro';
-import Header from '../../components/Header.astro';
+import { type CollectionEntry, getCollection, render } from "astro:content";
+import Layout from "../../layouts/Layout.astro";
+import DocsHeader from "../../components/DocsHeader.astro";
+import { Copy, FileText, ExternalLink } from "lucide-react";
 
 export async function getStaticPaths() {
-	const docs = await getCollection('docs');
-	return docs.map((doc) => ({
-		params: { slug: doc.id },
-		props: doc,
-	}));
+  const docs = await getCollection("docs");
+  return docs.map((doc) => ({
+    params: { slug: doc.id },
+    props: doc,
+  }));
 }
-type Props = CollectionEntry<'docs'>;
+type Props = CollectionEntry<"docs">;
 
 const doc = Astro.props;
-const { Content } = await render(doc);
+const { Content, headings } = await render(doc);
+
+const currentSlug = doc.id;
+
+const sidebarGroups = [
+  {
+    title: "Get started",
+    items: [
+      { slug: "get-started", label: "Quickstart" },
+      { slug: "ab-testing", label: "A/B Testing & Prompts" },
+    ],
+  },
+  {
+    title: "Core capabilities",
+    items: [
+      { slug: "custom-rubrics", label: "Custom Rubrics & Meta-LLM" },
+      { slug: "execution-trace", label: "Execution Trace & Tokens" },
+      { slug: "mock-tools", label: "Mock Tools & Blacklisting" },
+    ],
+  },
+  {
+    title: "Deployment",
+    items: [{ slug: "deployment", label: "Docker & Postgres Queue" }],
+  },
+];
+
+const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
 ---
 
-<Layout title={`${doc.data.title} | Akalin`} description={doc.data.description}>
-	<Header />
-	<main class="container mx-auto px-4 md:px-8 py-16 max-w-4xl min-h-[calc(100vh-64px)]">
-		<article class="prose prose-lg dark:prose-invert prose-headings:font-bold prose-a:text-primary max-w-none">
-			<Content />
-		</article>
-	</main>
+<Layout
+  title={`${doc.data.title} | Akalin Docs`}
+  description={doc.data.description}
+>
+  <DocsHeader currentSlug={currentSlug} />
+
+  <div
+    class="container mx-auto px-4 md:px-8 flex-1 flex min-h-[calc(100vh-64px)]"
+  >
+    {/* LEFT SIDEBAR NAVIGATION (Akalin Design System) */}
+    <aside class="w-64 shrink-0 hidden md:block border-r border-border text-sm">
+      <div class="sticky top-16 h-[calc(100vh-64px)] py-8 pr-6 overflow-y-auto">
+        {/* Categorized Docs Links */}
+        <nav class="space-y-6">
+          {
+            sidebarGroups.map((group) => (
+              <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2.5 px-2">
+                  {group.title}
+                </h3>
+                <ul class="space-y-1">
+                  {group.items.map((item) => {
+                    const isActive = currentSlug === item.slug;
+                    return (
+                      <li>
+                        <a
+                          href={`/docs/${item.slug}`}
+                          class={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                            isActive
+                              ? "bg-primary/10 text-primary font-semibold border border-primary/20 shadow-xs"
+                              : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))
+          }
+        </nav>
+      </div>
+    </aside>
+
+    {/* CENTER MAIN ARTICLE CONTENT */}
+    <main class="flex-1 min-w-0 py-8 md:py-10 px-0 md:px-8 lg:px-12">
+      {/* Breadcrumb */}
+      <div
+        class="flex items-center gap-2 text-xs text-muted-foreground mb-6 font-mono"
+      >
+        <a
+          href="/docs/get-started"
+          class="hover:text-foreground transition-colors">Docs</a
+        >
+        <span>/</span>
+        <span class="text-foreground capitalize">{doc.data.title}</span>
+      </div>
+
+      {/* Article Header & Action Bar */}
+      <div
+        class="flex items-start justify-between gap-4 pb-6 mb-8 border-b border-border"
+      >
+        <div>
+          <h1
+            class="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-2"
+          >
+            {doc.data.title}
+          </h1>
+          <p class="text-sm md:text-base text-muted-foreground max-w-2xl">
+            {doc.data.description}
+          </p>
+        </div>
+
+        <button
+          onclick="navigator.clipboard.writeText(window.location.href); alert('Page URL copied!');"
+          class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-muted/60 border border-border hover:bg-accent text-foreground rounded-lg transition-colors shrink-0 cursor-pointer"
+        >
+          <Copy className="size-3.5" />
+          <span>Copy link</span>
+        </button>
+      </div>
+
+      {/* Rendered Article Content with Akalin Typography & Colors */}
+      <article
+        class="prose prose-lg dark:prose-invert prose-headings:font-bold prose-headings:tracking-tight prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted/80 prose-pre:border prose-pre:border-border prose-pre:rounded-xl max-w-none"
+      >
+        <Content />
+      </article>
+
+      {/* Article Footer */}
+      <div
+        class="mt-16 pt-8 border-t border-border flex items-center justify-between text-xs text-muted-foreground"
+      >
+        <span>Was this page helpful?</span>
+        <a
+          href="https://github.com/confusionhill/akalin"
+          target="_blank"
+          rel="noreferrer"
+          class="flex items-center gap-1 hover:text-foreground transition-colors"
+        >
+          <span>Edit on GitHub</span>
+          <ExternalLink className="size-3" />
+        </a>
+      </div>
+    </main>
+
+    {/* RIGHT SIDEBAR (On this page TOC) */}
+    {
+      tocHeadings.length > 0 && (
+        <aside class="w-56 shrink-0 hidden lg:block py-8 pl-6 border-l border-border text-xs">
+          <div class="sticky top-24">
+            <h4 class="font-bold text-foreground uppercase tracking-wider text-[11px] mb-3 flex items-center gap-1.5">
+              <FileText className="size-3.5 text-muted-foreground" />
+              <span>On this page</span>
+            </h4>
+            <ul class="space-y-2 text-muted-foreground border-l border-border pl-3">
+              {tocHeadings.map((heading) => (
+                <li class={heading.depth === 3 ? "pl-3" : ""}>
+                  <a
+                    href={`#${heading.slug}`}
+                    class="hover:text-primary transition-colors block truncate py-0.5"
+                  >
+                    {heading.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+      )
+    }
+  </div>
 </Layout>

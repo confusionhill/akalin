@@ -1,0 +1,170 @@
+---
+import { Button } from "@/components/ui/button";
+import { Menu, X, BookOpen, ExternalLink, ChevronRight } from "lucide-react";
+
+interface Props {
+  currentSlug?: string;
+}
+
+const { currentSlug = "" } = Astro.props;
+
+const docsNav = [
+  {
+    title: "Get started",
+    items: [
+      { slug: "get-started", label: "Quickstart" },
+      { slug: "ab-testing", label: "A/B Testing & Prompts" },
+    ]
+  },
+  {
+    title: "Core capabilities",
+    items: [
+      { slug: "custom-rubrics", label: "Custom Rubrics & Meta-LLM" },
+      { slug: "execution-trace", label: "Execution Trace & Tokens" },
+      { slug: "mock-tools", label: "Mock Tools & Blacklisting" },
+    ]
+  },
+  {
+    title: "Deployment",
+    items: [
+      { slug: "deployment", label: "Docker & Postgres Queue" },
+    ]
+  }
+];
+---
+
+<header
+  class="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex flex-col w-full border-b backdrop-blur bg-grid"
+>
+  <div class="container mx-auto flex h-16 items-center justify-between px-4 md:px-8">
+    {/* Left Logo */}
+    <div class="flex items-center gap-2.5 min-w-0">
+      <a href="/" class="flex items-center gap-2">
+        <img
+          src="/icon.webp"
+          alt="Akalin Icon"
+          class="size-8 rounded-lg shrink-0"
+        />
+        <span class="text-lg font-bold tracking-tight truncate">Akalin</span>
+      </a>
+      <span class="text-xs font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+        Docs
+      </span>
+    </div>
+
+    {/* Right Actions & Hamburger */}
+    <div class="flex items-center gap-3">
+      <a
+        href="https://github.com/confusionhill/akalin"
+        target="_blank"
+        rel="noreferrer"
+        class="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium hidden sm:block"
+      >
+        GitHub
+      </a>
+      <a href="https://github.com/confusionhill/akalin" target="_blank" rel="noreferrer">
+        <Button variant="default" className="font-semibold shadow-md text-xs sm:text-sm px-3.5 sm:px-4">
+          Get Started
+        </Button>
+      </a>
+
+      {/* Mobile Hamburger Button */}
+      <button
+        id="docs-mobile-menu-btn"
+        aria-label="Toggle Menu"
+        class="md:hidden p-2 rounded-md hover:bg-accent text-foreground transition-colors"
+      >
+        <Menu className="size-6 block" id="docs-menu-icon-open" />
+        <X className="size-6 hidden" id="docs-menu-icon-close" />
+      </button>
+    </div>
+  </div>
+
+  {/* Mobile Collapsible Drawer with Docs Sidebar Links */}
+  <div
+    id="docs-mobile-menu"
+    class="hidden md:hidden border-t bg-background/95 backdrop-blur px-6 py-6 flex-col gap-6 max-h-[calc(100vh-64px)] overflow-y-auto"
+  >
+    {/* Documentation Navigation Links */}
+    <div class="space-y-4">
+      <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary pb-2 border-b border-border">
+        <BookOpen className="size-4" />
+        <span>Documentation Topics</span>
+      </div>
+
+      {docsNav.map((group) => (
+        <div class="space-y-2">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+            {group.title}
+          </h4>
+          <nav class="flex flex-col gap-1">
+            {group.items.map((item) => {
+              const isActive = currentSlug === item.slug;
+              return (
+                <a
+                  href={`/docs/${item.slug}`}
+                  class={`docs-mobile-link flex items-center justify-between py-2 px-3 rounded-lg text-sm transition-colors ${
+                    isActive
+                      ? "bg-primary/10 text-primary font-semibold border border-primary/20"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  <ChevronRight className="size-4 opacity-60" />
+                </a>
+              );
+            })}
+          </nav>
+        </div>
+      ))}
+    </div>
+
+    {/* Site Global Links */}
+    <div class="pt-4 border-t border-border flex flex-col gap-3 text-sm font-medium">
+      <a href="/" class="docs-mobile-link text-muted-foreground hover:text-foreground transition-colors py-1">
+        Main Site
+      </a>
+      <a href="/blog" class="docs-mobile-link text-muted-foreground hover:text-foreground transition-colors py-1">
+        Blog
+      </a>
+      <a href="https://github.com/confusionhill/akalin" target="_blank" rel="noreferrer" class="docs-mobile-link text-muted-foreground hover:text-foreground transition-colors py-1 flex items-center gap-1.5">
+        <span>GitHub</span>
+        <ExternalLink className="size-3.5 opacity-70" />
+      </a>
+    </div>
+  </div>
+</header>
+
+<script>
+  const btn = document.getElementById("docs-mobile-menu-btn");
+  const menu = document.getElementById("docs-mobile-menu");
+  const iconOpen = document.getElementById("docs-menu-icon-open");
+  const iconClose = document.getElementById("docs-menu-icon-close");
+  const mobileLinks = document.querySelectorAll(".docs-mobile-link");
+
+  if (btn && menu && iconOpen && iconClose) {
+    btn.addEventListener("click", () => {
+      const isHidden = menu.classList.contains("hidden");
+      if (isHidden) {
+        menu.classList.remove("hidden");
+        menu.classList.add("flex");
+        iconOpen.classList.add("hidden");
+        iconClose.classList.remove("hidden");
+      } else {
+        menu.classList.add("hidden");
+        menu.classList.remove("flex");
+        iconOpen.classList.remove("hidden");
+        iconClose.classList.add("hidden");
+      }
+    });
+
+    mobileLinks.forEach((link) => {
+      link.addEventListener("click", () => {
+        menu.classList.add("hidden");
+        menu.classList.remove("flex");
+        iconOpen.classList.remove("hidden");
+        iconClose.classList.add("hidden");
+      });
+    });
+  }
+</script>

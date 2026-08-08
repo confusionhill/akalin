@@ -39,6 +39,10 @@ Akalin allows developers to test system prompts across test cases, evaluate mode
 - **PostgreSQL Worker Pool** — Asynchronous evaluation runner powered by PostgreSQL `FOR UPDATE SKIP LOCKED` locking for high concurrency.
 - **Mid-Run Cancellation** — Cancel pending or running evaluation jobs in real-time.
 
+### 🔀 Prompt Versioning & A/B Testing
+- **Decoupled Prompt Management** — Decouple system prompts from backend code to fetch active system prompts dynamically at runtime via REST API (`/v1/projects/:id/active-prompt`).
+- **Weighted Traffic Splitting** — Route traffic percentages across prompt variants (e.g., 80/20 split) to safely A/B test system prompt changes in production with zero code redeployments or downtime.
+
 ### 🔐 Auth & Account Isolation
 - **Authentication & Security** — User registration, JWT authentication, user account isolation, and profile management (profile details & password updates).
 - **Granular Audit Trails** — Track creation and modification history for prompts, presets, test cases, tools, and evaluation runs.

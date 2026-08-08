@@ -14,7 +14,7 @@ It features real-time evaluation dashboarding, prompt version management, rubric
 - **Auto-Refine & Rubric Calibration Modals** — Calibration wizard to generate rubrics from CSV dataset uploads or historical low-scoring evaluation runs.
 - **Mock Tools & Blacklisting Controls** — Interface to manage project tools and toggle per-run tool blacklisting to test model tool-selection logic.
 - **Preset Configurations Manager** — Modal interface to save, edit, reload, and delete reusable pipeline presets.
-- **Prompt Versioning Interface** — Immutability-enforced prompt version history for system prompts and evaluation rubrics.
+- **Prompt Versioning & A/B Testing Interface** — Immutability-enforced prompt version history for system prompts and evaluation rubrics, complete with UI controls for configuring weighted traffic splits and instant rollouts.
 - **BYOK Provider & Model Management** — Management interfaces for BYOK provider configurations (custom headers, API keys, endpoints) and LLM model catalogs with test connection tools.
 - **User Profile & Settings** — User settings dialogs for profile name updates and password changes.
 

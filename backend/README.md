@@ -41,6 +41,7 @@ backend/
 - **Agent Execution Tracing & Token Audit** — Multiturn function calling loop supporting tools, tracing each step (`user_input`, `tool_call`, `tool_output`, `ai_answer`), and recording prompt, completion, and total tokens.
 - **Async PostgreSQL Queue & Worker Pool** — Concurrent worker pool fetching jobs via `FOR UPDATE SKIP LOCKED` with mid-run cancellation support.
 - **Bring Your Own Key (BYOK)** — Supports any OpenAI-compatible provider endpoint with configurable custom HTTP headers and API key authorization.
+- **Active Prompt API & Weighted Traffic Splitting** — Dynamic prompt fetching endpoints (`/v1/projects/:id/active-prompt`) utilizing weighted random traffic distribution across prompt variants for production A/B testing.
 - **Programmatic & LLM Scoring Layers** — Dual-layer evaluation combining JSON format validation (Layer 1) with rubric LLM grading (Layer 2).
 
 ---

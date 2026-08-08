@@ -2,7 +2,7 @@
 title: 'A/B Testing Prompt Versions: Safely Rolling Out GenAI Changes'
 description: 'Learn how to manage, publish, and A/B test system prompt versions seamlessly without deploying code changes.'
 pubDate: '2026-08-08'
-heroImage: '/eval-driven-development.png'
+heroImage: '/ab-testing.png'
 draft: false
 ---
 # A/B Testing Prompt Versions: Safely Rolling Out GenAI Changes
