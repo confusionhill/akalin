@@ -345,3 +345,89 @@ func (h *Handler) UpdatePassword(c echo.Context) error {
 		"message": "Password updated successfully",
 	})
 }
+
+func (h *Handler) CreateAPIKey(c echo.Context) error {
+	// Either GetAuth or GetUserAuth, but GetUserAuth is better since API Keys are user-level, not tenant-level
+	userID, err := h.GetUserAuth(c)
+	if err != nil {
+		return err
+	}
+
+	req := new(CreateAPIKeyReq)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+
+	resp, err := h.usecase.CreateAPIKey(c.Request().Context(), userID, *req)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusCreated, resp)
+}
+
+func (h *Handler) GetAPIKeys(c echo.Context) error {
+	userID, err := h.GetUserAuth(c)
+	if err != nil {
+		return err
+	}
+
+	keys, err := h.usecase.GetAPIKeys(c.Request().Context(), userID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, keys)
+}
+
+func (h *Handler) DeleteAPIKey(c echo.Context) error {
+	userID, err := h.GetUserAuth(c)
+	if err != nil {
+		return err
+	}
+
+	keyID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid key ID")
+	}
+
+	err = h.usecase.DeleteAPIKey(c.Request().Context(), userID, keyID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *Handler) APIKeyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		authHeader := c.Request().Header.Get("Authorization")
+		if authHeader == "" {
+			return echo.NewHTTPError(http.StatusUnauthorized, "Missing Authorization header")
+		}
+
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString == authHeader {
+			return echo.NewHTTPError(http.StatusUnauthorized, "Invalid Authorization header format")
+		}
+
+		// API Keys start with "ak-"
+		if !strings.HasPrefix(tokenString, "ak-") {
+			return echo.NewHTTPError(http.StatusUnauthorized, "Invalid API key format")
+		}
+
+		userID, err := h.usecase.ValidateAPIKey(c.Request().Context(), tokenString)
+		if err != nil {
+			if errors.Is(err, ErrInvalidCredentials) {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired API key")
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to validate API key")
+		}
+
+		c.Set("user_id", userID)
+		return next(c)
+	}
+}

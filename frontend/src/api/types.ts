@@ -56,6 +56,7 @@ export interface SystemPrompt {
   project_id: string
   content: string
   version: number
+  traffic_weight: number
   created_by: string
   created_at: string
 }
@@ -335,4 +336,33 @@ export interface ModelPerformanceSummary {
   averageScore: number
   bestScore: number
   worstScore: number
+}
+
+export interface APIKey {
+  id: string
+  user_id: string
+  name: string
+  key_hash: string
+  last_used_at: string | null
+  expires_at: string | null
+  created_at: string
+}
+
+export interface CreateAPIKeyInput {
+  name: string
+  expires_in: string // "7-days", "30-days", "90-days", "never"
+}
+
+export interface CreateAPIKeyResponse {
+  api_key: APIKey
+  raw_key: string
+}
+
+export interface PromptDistribution {
+  prompt_id: string
+  weight: number
+}
+
+export interface PublishSystemPromptsInput {
+  distributions: PromptDistribution[]
 }

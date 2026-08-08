@@ -23,6 +23,15 @@ func NewHandler(u Usecase, authHandler *auth.Handler) *Handler {
 	}
 }
 
+type PublishSystemPromptsReq struct {
+	Distributions []PromptDistribution `json:"distributions"`
+}
+
+type PromptDistribution struct {
+	PromptID uuid.UUID `json:"prompt_id" validate:"required"`
+	Weight   int       `json:"weight" validate:"min=0,max=100"`
+}
+
 func (h *Handler) GetSystemPrompts(c echo.Context) error {
 	_, _, _, err := h.authHandler.GetAuth(c)
 	if err != nil {
@@ -95,6 +104,54 @@ func (h *Handler) UpdateSystemPrompt(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "System prompt not found")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, prompt)
+}
+
+func (h *Handler) PublishSystemPrompts(c echo.Context) error {
+	_, _, _, err := h.authHandler.GetAuth(c)
+	if err != nil {
+		return err
+	}
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid project ID")
+	}
+
+	req := new(PublishSystemPromptsReq)
+	if err := c.Bind(req); err != nil {
+		return err
+	}
+
+	distMap := make(map[uuid.UUID]int)
+	for _, d := range req.Distributions {
+		distMap[d.PromptID] = d.Weight
+	}
+
+	err = h.usecase.PublishSystemPrompts(c.Request().Context(), projectID, distMap)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *Handler) GetActiveSystemPrompt(c echo.Context) error {
+	// Protected by APIKeyMiddleware, so user_id is in context
+	_, ok := c.Get("user_id").(uuid.UUID)
+	if !ok {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized")
+	}
+
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid project ID")
+	}
+
+	prompt, err := h.usecase.GetActiveSystemPrompt(c.Request().Context(), projectID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, prompt)

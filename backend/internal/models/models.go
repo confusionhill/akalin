@@ -53,6 +53,16 @@ type TenantInvitation struct {
 	CreatedAt  time.Time `db:"created_at" json:"created_at"`
 }
 
+type APIKey struct {
+	ID         uuid.UUID  `db:"id" json:"id"`
+	UserID     uuid.UUID  `db:"user_id" json:"user_id"`
+	Name       string     `db:"name" json:"name" validate:"required"`
+	KeyHash    string     `db:"key_hash" json:"-"`
+	ExpiresAt  *time.Time `db:"expires_at" json:"expires_at"`
+	LastUsedAt *time.Time `db:"last_used_at" json:"last_used_at"`
+	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
+}
+
 type Project struct {
 	ID          uuid.UUID `db:"id" json:"id"`
 	TenantID    uuid.UUID `db:"tenant_id" json:"tenant_id"`
@@ -65,13 +75,21 @@ type Project struct {
 }
 
 type SystemPrompt struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	ProjectID uuid.UUID `db:"project_id" json:"project_id"`
-	Content   string    `db:"content" json:"content" validate:"required"`
-	Version   int       `db:"version" json:"version"`
-	CreatedBy uuid.UUID `db:"created_by" json:"created_by"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID            uuid.UUID `db:"id" json:"id"`
+	ProjectID     uuid.UUID `db:"project_id" json:"project_id"`
+	Content       string    `db:"content" json:"content" validate:"required"`
+	Version       int       `db:"version" json:"version"`
+	TrafficWeight int       `db:"traffic_weight" json:"traffic_weight"`
+	CreatedBy     uuid.UUID `db:"created_by" json:"created_by"`
+	CreatedAt     time.Time `db:"created_at" json:"created_at"`
 }
+
+type ProjectPublication struct {
+	ProjectID     uuid.UUID `db:"project_id" json:"project_id"`
+	PromptID      uuid.UUID `db:"prompt_id" json:"prompt_id"`
+	TrafficWeight int       `db:"traffic_weight" json:"traffic_weight"`
+}
+
 
 type EvaluationPrompt struct {
 	ID        uuid.UUID `db:"id" json:"id"`

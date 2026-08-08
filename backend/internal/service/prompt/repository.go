@@ -10,8 +10,10 @@ import (
 
 type Repository interface {
 	GetSystemPrompts(ctx context.Context, projectID uuid.UUID) ([]models.SystemPrompt, error)
+	GetActiveSystemPrompts(ctx context.Context, projectID uuid.UUID) ([]models.SystemPrompt, error)
 	CreateSystemPrompt(ctx context.Context, projectID, userID uuid.UUID, content string) (*models.SystemPrompt, error)
 	UpdateSystemPrompt(ctx context.Context, promptID, projectID uuid.UUID, content string) (*models.SystemPrompt, error)
+	UpdateSystemPromptWeights(ctx context.Context, projectID uuid.UUID, weights map[uuid.UUID]int) error
 
 	GetEvaluationPrompts(ctx context.Context, projectID uuid.UUID) ([]models.EvaluationPrompt, error)
 	CreateEvaluationPrompt(ctx context.Context, projectID, userID uuid.UUID, content string) (*models.EvaluationPrompt, error)
@@ -28,7 +30,14 @@ func NewRepository(db *sqlx.DB) Repository {
 
 func (r *repository) GetSystemPrompts(ctx context.Context, projectID uuid.UUID) ([]models.SystemPrompt, error) {
 	var prompts []models.SystemPrompt
-	err := r.db.SelectContext(ctx, &prompts, "SELECT * FROM system_prompts WHERE project_id = $1 ORDER BY version DESC", projectID)
+	query := `
+		SELECT sp.*, COALESCE(pp.traffic_weight, 0) AS traffic_weight 
+		FROM system_prompts sp 
+		LEFT JOIN project_publications pp ON sp.id = pp.prompt_id 
+		WHERE sp.project_id = $1 
+		ORDER BY sp.version DESC
+	`
+	err := r.db.SelectContext(ctx, &prompts, query, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +79,51 @@ func (r *repository) UpdateSystemPrompt(ctx context.Context, promptID, projectID
 		return nil, err
 	}
 	return &prompt, nil
+}
+
+func (r *repository) GetActiveSystemPrompts(ctx context.Context, projectID uuid.UUID) ([]models.SystemPrompt, error) {
+	var prompts []models.SystemPrompt
+	query := `
+		SELECT sp.*, pp.traffic_weight 
+		FROM system_prompts sp 
+		INNER JOIN project_publications pp ON sp.id = pp.prompt_id 
+		WHERE sp.project_id = $1 AND pp.traffic_weight > 0 
+		ORDER BY sp.version DESC
+	`
+	err := r.db.SelectContext(ctx, &prompts, query, projectID)
+	if err != nil {
+		return nil, err
+	}
+	if prompts == nil {
+		prompts = []models.SystemPrompt{}
+	}
+	return prompts, nil
+}
+
+func (r *repository) UpdateSystemPromptWeights(ctx context.Context, projectID uuid.UUID, weights map[uuid.UUID]int) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// First, remove all existing weights for the project
+	_, err = tx.ExecContext(ctx, "DELETE FROM project_publications WHERE project_id = $1", projectID)
+	if err != nil {
+		return err
+	}
+
+	// Then insert the new active weights
+	for promptID, weight := range weights {
+		if weight > 0 {
+			_, err = tx.ExecContext(ctx, "INSERT INTO project_publications (project_id, prompt_id, traffic_weight) VALUES ($1, $2, $3)", projectID, promptID, weight)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (r *repository) GetEvaluationPrompts(ctx context.Context, projectID uuid.UUID) ([]models.EvaluationPrompt, error) {

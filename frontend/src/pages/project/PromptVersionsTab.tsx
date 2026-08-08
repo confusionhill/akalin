@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
-import { Loader2, Pencil, Plus, Settings2, XCircle, RotateCcw, Trash2 } from "lucide-react"
+import { Link } from "react-router-dom"
+import { Loader2, Pencil, Plus, Settings2, XCircle, RotateCcw, Trash2, Split, Check, Copy, Code, ChevronRight, ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 
-import type { SystemPrompt, RubricDraft } from "@/api/types"
+import type { RubricDraft, PublishSystemPromptsInput } from "@/api/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,17 +27,28 @@ import { formatDateTime, formatRelativeTime, truncate } from "@/lib/utils"
 import { CalibrateRubricModal } from "./CalibrateRubricModal"
 import { rubricDraftsApi } from "@/api"
 
+export interface BasePrompt {
+  id: string
+  project_id: string
+  content: string
+  version: number
+  created_by: string
+  created_at: string
+  traffic_weight?: number
+}
+
 interface PromptApi {
-  list: (projectId: string) => Promise<SystemPrompt[]>
+  list: (projectId: string) => Promise<BasePrompt[]>
   create: (
     projectId: string,
     body: { content: string },
-  ) => Promise<SystemPrompt>
+  ) => Promise<BasePrompt>
   update: (
     projectId: string,
     promptId: string,
     body: { content: string },
-  ) => Promise<SystemPrompt>
+  ) => Promise<BasePrompt>
+  publish?: (projectId: string, body: PublishSystemPromptsInput) => Promise<void>
 }
 
 interface Props {
@@ -56,15 +68,26 @@ export function PromptVersionsTab({
   placeholder,
   isEvaluationPrompt,
 }: Props) {
-  const [items, setItems] = useState<SystemPrompt[] | null>(null)
+  const [items, setItems] = useState<BasePrompt[] | null>(null)
   const [drafts, setDrafts] = useState<RubricDraft[] | null>(null)
   const [error, setError] = useState(false)
   
   const [open, setOpen] = useState(false)
   const [calibrateModalOpen, setCalibrateModalOpen] = useState(false)
-  const [editing, setEditing] = useState<SystemPrompt | null>(null)
+  const [editing, setEditing] = useState<BasePrompt | null>(null)
   const [content, setContent] = useState("")
   const [saving, setSaving] = useState(false)
+
+  // Traffic Splitting Modal State
+  const [distributionModalOpen, setDistributionModalOpen] = useState(false)
+  const [isEditingDistribution, setIsEditingDistribution] = useState(false)
+  const [selectedPrompts, setSelectedPrompts] = useState<string[]>([])
+  const [weights, setWeights] = useState<Record<string, number>>({})
+  const [savingDist, setSavingDist] = useState(false)
+  
+  const [snippetLanguage, setSnippetLanguage] = useState<"curl" | "python" | "nodejs">("curl")
+  const [copiedCode, setCopiedCode] = useState(false)
+  const [showSampleResponse, setShowSampleResponse] = useState(false)
 
   const load = async () => {
     setError(false)
@@ -110,7 +133,7 @@ export function PromptVersionsTab({
     setOpen(true)
   }
 
-  const openEdit = (item: SystemPrompt) => {
+  const openEdit = (item: BasePrompt) => {
     setEditing(item)
     setContent(item.content)
     setOpen(true)
@@ -165,6 +188,126 @@ export function PromptVersionsTab({
     }
   }
 
+  const openDistributionModal = () => {
+    if (!items) return
+    const initialSelected: string[] = []
+    const initialWeights: Record<string, number> = {}
+    items.forEach((item) => {
+      if (item.traffic_weight && item.traffic_weight > 0) {
+        initialSelected.push(item.id)
+        initialWeights[item.id] = item.traffic_weight
+      }
+    })
+    setSelectedPrompts(initialSelected)
+    setWeights(initialWeights)
+    setIsEditingDistribution(false)
+    setDistributionModalOpen(true)
+  }
+
+  const getApiSnippet = () => {
+    const baseUrl = window.location.origin
+    const endpoint = `${baseUrl}/api/v1/projects/${projectId}/active-prompt`
+    
+    if (snippetLanguage === "curl") {
+      return `curl -X GET ${endpoint} \\\n  -H "Authorization: Bearer <YOUR_API_KEY>"`
+    } else if (snippetLanguage === "python") {
+      return `import requests\n\nheaders = {"Authorization": "Bearer <YOUR_API_KEY>"}\nresponse = requests.get(\n  "${endpoint}",\n  headers=headers\n)\nprint(response.json())`
+    } else {
+      return `const response = await fetch("${endpoint}", {\n  headers: {\n    "Authorization": "Bearer <YOUR_API_KEY>"\n  }\n});\nconst data = await response.json();\nconsole.log(data);`
+    }
+  }
+
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(getApiSnippet())
+      setCopiedCode(true)
+      setTimeout(() => setCopiedCode(false), 2000)
+    } catch (err) {
+      toast.error("Failed to copy code")
+    }
+  }
+
+  const toggleSelection = (id: string) => {
+    if (selectedPrompts.includes(id)) {
+      // Remove
+      const newSelected = selectedPrompts.filter(pid => pid !== id)
+      setSelectedPrompts(newSelected)
+      
+      setWeights(prev => {
+        const next = { ...prev }
+        delete next[id]
+        if (newSelected.length === 1) {
+          next[newSelected[0]] = 100
+        }
+        return next
+      })
+    } else {
+      // Add
+      if (selectedPrompts.length >= 2) {
+        toast.error("You can only select up to 2 versions for traffic distribution.")
+        return
+      }
+      const newSelected = [...selectedPrompts, id]
+      setSelectedPrompts(newSelected)
+      
+      setWeights(() => {
+        if (newSelected.length === 1) {
+          return { [id]: 100 }
+        } else {
+          // split 50/50 automatically
+          return {
+            [newSelected[0]]: 50,
+            [newSelected[1]]: 50,
+          }
+        }
+      })
+    }
+  }
+
+  const handleUpdateWeight = (id: string, weight: number) => {
+    setWeights((prev) => {
+      const next = { ...prev, [id]: weight }
+      // auto balance if exactly 2 are selected
+      if (selectedPrompts.length === 2) {
+        const otherId = selectedPrompts.find(pid => pid !== id)!
+        next[otherId] = 100 - weight
+      }
+      return next
+    })
+  }
+
+  const handleSaveDistribution = async () => {
+    if (!api.publish) return
+    
+    // Validate total weight is exactly 100 or 0
+    let total = 0
+    const distributions: { prompt_id: string; weight: number }[] = []
+    
+    for (const [prompt_id, weight] of Object.entries(weights)) {
+      if (weight > 0) {
+        total += weight
+        distributions.push({ prompt_id, weight })
+      }
+    }
+
+    if (total !== 0 && total !== 100) {
+      toast.error(`Total weight must be exactly 100 (current: ${total})`)
+      return
+    }
+
+    setSavingDist(true)
+    try {
+      await api.publish(projectId, { distributions })
+      toast.success("Traffic distribution updated")
+      setDistributionModalOpen(false)
+      void load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update distribution")
+    } finally {
+      setSavingDist(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -177,6 +320,12 @@ export function PromptVersionsTab({
             <Button variant="outline" size="sm" onClick={() => setCalibrateModalOpen(true)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200">
               <Settings2 className="size-4 text-indigo-500" />
               Calibrate Rubric
+            </Button>
+          )}
+          {!isEvaluationPrompt && api.publish && items !== null && items.length > 0 && (
+            <Button variant="outline" size="sm" onClick={openDistributionModal}>
+              <Split className="size-4" />
+              {items.some(i => i.traffic_weight && i.traffic_weight > 0) ? "Traffic Distribution" : "Publish"}
             </Button>
           )}
           <Dialog open={open} onOpenChange={setOpen}>
@@ -227,9 +376,189 @@ export function PromptVersionsTab({
         open={calibrateModalOpen}
         onOpenChange={setCalibrateModalOpen}
         projectId={projectId}
-        prompts={items || []}
+        prompts={(items as any) || []}
         onSuccess={load}
       />
+
+      <Dialog open={distributionModalOpen} onOpenChange={setDistributionModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Publish & Traffic Distribution</DialogTitle>
+            <DialogDescription>
+              {isEditingDistribution 
+                ? "Select up to 2 versions to publish to production. Adjust traffic weights if you select 2."
+                : "View your currently published prompt versions and distribution metrics."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto py-4 pr-2 flex flex-col gap-6">
+            {!isEditingDistribution ? (
+              // --- VIEW MODE ---
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium">Currently Published</h4>
+                  {items?.filter(i => i.traffic_weight && i.traffic_weight > 0).length === 0 ? (
+                    <div className="p-4 border border-dashed rounded-lg text-center text-sm text-muted-foreground bg-muted/30">
+                      No versions are currently published.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {items?.filter(i => i.traffic_weight && i.traffic_weight > 0).map(item => (
+                        <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg bg-card">
+                          <div>
+                            <div className="text-sm font-medium">Version {item.version}</div>
+                            <div className="text-xs text-muted-foreground line-clamp-1">{item.content}</div>
+                          </div>
+                          <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                            {item.traffic_weight}% Traffic
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-1">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <Code className="size-4" /> API Integration
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Tip: You can generate an API key in <Link to="/settings?tab=api-keys" className="text-primary hover:underline">Settings</Link>.
+                    </p>
+                  </div>
+                  <div className="border rounded-lg overflow-hidden flex flex-col">
+                    <div className="flex bg-muted/50 border-b overflow-x-auto">
+                      {(["curl", "python", "nodejs"] as const).map(lang => (
+                        <button
+                          key={lang}
+                          onClick={() => setSnippetLanguage(lang)}
+                          className={`px-4 py-2 text-xs font-medium capitalize transition-colors ${snippetLanguage === lang ? "bg-background border-b-2 border-primary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                          {lang}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="p-4 bg-background relative group">
+                      <pre className="text-xs font-mono text-muted-foreground overflow-x-auto pb-2">
+                        {getApiSnippet()}
+                      </pre>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-muted/50"
+                        onClick={handleCopyCode}
+                      >
+                        {copiedCode ? <Check className="size-3.5 text-green-500" /> : <Copy className="size-3.5" />}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-1">
+                    <button 
+                      onClick={() => setShowSampleResponse(!showSampleResponse)}
+                      className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-2"
+                    >
+                      {showSampleResponse ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                      Sample Response
+                    </button>
+                    {showSampleResponse && (
+                      <div className="border rounded-lg bg-background p-4 overflow-x-auto">
+                        <pre className="text-xs font-mono text-muted-foreground">
+{`{
+  "id": "c5cd45e0-c456-41ba-b22e-f601e880fb77",
+  "project_id": "3683a724-2435-4e99-95dc-6f2e39664763",
+  "content": "You are a helpful assistant.",
+  "version": 1,
+  "traffic_weight": 100,
+  "created_by": "00000000-0000-0000-0000-000000000002",
+  "created_at": "2026-08-08T15:20:30.333Z"
+}`}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // --- EDIT MODE ---
+              <div className="flex flex-col gap-3">
+                {items?.map((item) => {
+                  const isSelected = selectedPrompts.includes(item.id)
+                  const currentWeight = weights[item.id] || 0
+                  return (
+                    <div 
+                      key={item.id} 
+                      className={`flex flex-col gap-3 p-3 border rounded-lg transition-colors ${isSelected ? "bg-amber-50/50 border-amber-200" : "bg-card hover:bg-accent/50 cursor-pointer"}`}
+                      onClick={() => !isSelected && toggleSelection(item.id)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); toggleSelection(item.id); }}
+                          className={`mt-1 flex size-5 shrink-0 items-center justify-center rounded border ${isSelected ? "bg-amber-500 border-amber-500 text-white" : "border-input bg-background"}`}
+                        >
+                          {isSelected && <Check className="size-3.5" />}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium mb-1">
+                            Version {item.version}
+                          </div>
+                          <div className="text-xs text-muted-foreground line-clamp-2 font-mono break-all">
+                            {item.content}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {isSelected && selectedPrompts.length > 1 && (
+                        <div className="flex items-center gap-3 pl-8 pt-2">
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={currentWeight}
+                            onChange={(e) => handleUpdateWeight(item.id, parseInt(e.target.value, 10))}
+                            className="flex-1 accent-amber-500"
+                          />
+                          <span className="text-sm font-mono w-12 text-right">{currentWeight}%</span>
+                        </div>
+                      )}
+                      {isSelected && selectedPrompts.length === 1 && (
+                        <div className="flex items-center gap-3 pl-8 pt-2">
+                          <div className="flex-1 h-2 bg-amber-500 rounded-full opacity-80" />
+                          <span className="text-sm font-mono w-12 text-right">100%</span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="mt-2 border-t pt-4">
+            {!isEditingDistribution ? (
+              <div className="flex w-full justify-between sm:justify-between items-center">
+                <Button variant="outline" onClick={() => setDistributionModalOpen(false)}>Close</Button>
+                <Button onClick={() => setIsEditingDistribution(true)}>Edit Distribution</Button>
+              </div>
+            ) : (
+              <div className="flex w-full justify-between sm:justify-between items-center">
+                <div className="text-sm font-medium text-muted-foreground">
+                  {selectedPrompts.length === 0 ? "0 versions selected" : `${selectedPrompts.length}/2 versions selected`}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setIsEditingDistribution(false)}>Cancel</Button>
+                  <Button onClick={handleSaveDistribution} disabled={savingDist}>
+                    {savingDist && <Loader2 className="mr-2 size-4 animate-spin" />}
+                    {selectedPrompts.length === 0 ? "Unpublish All" : "Save & Publish"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {items === null && !error && (
         <div className="flex flex-col gap-2">
@@ -321,6 +650,11 @@ export function PromptVersionsTab({
                   <CardTitle className="flex items-center gap-2 text-sm">
                     Version {item.version}
                     {idx === 0 && <Badge variant="default">latest</Badge>}
+                    {!isEvaluationPrompt && item.traffic_weight && item.traffic_weight > 0 ? (
+                      <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                        {item.traffic_weight}% Traffic
+                      </Badge>
+                    ) : null}
                   </CardTitle>
                   <div className="flex items-center gap-1">
                     <Button

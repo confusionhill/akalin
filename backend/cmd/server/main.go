@@ -10,8 +10,9 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/config"
-	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/auth"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/db"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/pkg/cache"
+	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/auth"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/evaluation"
 	"github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/service/llmmodel"
 	authMW "github.com/dika/llm-evaluation-pipeline-dashboard/backend/internal/middleware"
@@ -74,8 +75,9 @@ func main() {
 	projectUsecase := project.NewUsecase(projectRepo)
 	projectHandler := project.NewHandler(projectUsecase, authHandler)
 
+	promptCache := cache.NewPromptCache()
 	promptRepo := prompt.NewRepository(dbConn)
-	promptUsecase := prompt.NewUsecase(promptRepo)
+	promptUsecase := prompt.NewUsecase(promptRepo, promptCache)
 	promptHandler := prompt.NewHandler(promptUsecase, authHandler)
 
 	testcaseRepo := testcase.NewRepository(dbConn)
@@ -123,6 +125,9 @@ func main() {
 	userGroup := api.Group("/users/me", authMiddleware.RequireAuth)
 	userGroup.PUT("/profile", authHandler.UpdateProfile)
 	userGroup.PUT("/password", authHandler.UpdatePassword)
+	userGroup.POST("/api-keys", authHandler.CreateAPIKey)
+	userGroup.GET("/api-keys", authHandler.GetAPIKeys)
+	userGroup.DELETE("/api-keys/:id", authHandler.DeleteAPIKey)
 
 	// Projects
 	projectGroup := api.Group("/projects", authMiddleware.RequireAuth)
@@ -133,12 +138,18 @@ func main() {
 
 	// System Prompts
 	projectGroup.GET("/:id/prompts", promptHandler.GetSystemPrompts)
-	projectGroup.POST(":id/prompts", promptHandler.CreateSystemPrompt)
+	projectGroup.POST("/:id/prompts", promptHandler.CreateSystemPrompt)
 	projectGroup.PUT("/:id/prompts/:prompt_id", promptHandler.UpdateSystemPrompt)
+	projectGroup.POST("/:id/prompts/publish", promptHandler.PublishSystemPrompts)
+
+	// API System Prompt
+	// GET /api/v1/projects/:id/active-prompt (using authMiddleware for internal UI or API key for external clients)
+	// We map it outside projectGroup to support API keys
+	api.GET("/v1/projects/:id/active-prompt", promptHandler.GetActiveSystemPrompt, authHandler.APIKeyMiddleware)
 
 	// Evaluation Prompts
 	projectGroup.GET("/:id/evaluation-prompts", promptHandler.GetEvaluationPrompts)
-	projectGroup.POST(":id/evaluation-prompts", promptHandler.CreateEvaluationPrompt)
+	projectGroup.POST("/:id/evaluation-prompts", promptHandler.CreateEvaluationPrompt)
 	projectGroup.PUT("/:id/evaluation-prompts/:prompt_id", promptHandler.UpdateEvaluationPrompt)
 
 	// Test Cases

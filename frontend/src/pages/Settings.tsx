@@ -1,10 +1,11 @@
 import { useState, useEffect, type FormEvent } from "react"
 import { useSearchParams } from "react-router-dom"
-import { Loader2, UserPlus, Shield, ShieldAlert, Trash2, Copy, Check, Ticket, User, Clock, Calendar, ShieldCheck, Users } from "lucide-react"
+import { Loader2, UserPlus, Shield, ShieldAlert, Trash2, Copy, Check, Ticket, User, Clock, Calendar, ShieldCheck, Users, Key } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAuth } from "@/context/auth-context"
-import { usersApi, authApi } from "@/api"
+import { usersApi, authApi, apiKeysApi } from "@/api"
+import { type APIKey } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -59,6 +60,7 @@ export function SettingsPage() {
   const sections = [
     { id: "profile", label: "Profile", icon: User },
     { id: "security", label: "Security", icon: ShieldCheck },
+    { id: "api-keys", label: "API Keys", icon: Key },
     { id: "members", label: "Workspace Members", icon: Users },
   ]
 
@@ -95,6 +97,16 @@ export function SettingsPage() {
   const [tokenExpiryDate, setTokenExpiryDate] = useState<string | null>(null)
   const [copiedToken, setCopiedToken] = useState(false)
 
+  // API Keys State
+  const [apiKeys, setApiKeys] = useState<APIKey[]>([])
+  const [loadingApiKeys, setLoadingApiKeys] = useState(false)
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false)
+  const [newKeyName, setNewKeyName] = useState("")
+  const [newKeyExpires, setNewKeyExpires] = useState("30-days")
+  const [creatingApiKey, setCreatingApiKey] = useState(false)
+  const [createdRawKey, setCreatedRawKey] = useState<string | null>(null)
+  const [copiedApiKey, setCopiedApiKey] = useState(false)
+
   const currentUserRole = auth?.accessRole ?? 60
 
   // Fetch real workspace members from API
@@ -128,6 +140,24 @@ export function SettingsPage() {
     }
     fetchMembers()
   }, [auth?.tenantId])
+
+  useEffect(() => {
+    async function fetchApiKeys() {
+      if (!auth) return
+      setLoadingApiKeys(true)
+      try {
+        const res = await apiKeysApi.list()
+        setApiKeys(res || [])
+      } catch (err) {
+        console.error("Failed to fetch API keys:", err)
+      } finally {
+        setLoadingApiKeys(false)
+      }
+    }
+    if (activeTab === "api-keys") {
+      fetchApiKeys()
+    }
+  }, [auth, activeTab])
 
   const handleProfileSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -199,6 +229,44 @@ export function SettingsPage() {
       setCopiedToken(true)
       toast.success("Join Token copied to clipboard")
       setTimeout(() => setCopiedToken(false), 2000)
+    }
+  }
+
+  const handleCreateApiKey = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!newKeyName.trim()) return
+
+    setCreatingApiKey(true)
+    try {
+      const res = await apiKeysApi.create({ name: newKeyName.trim(), expires_in: newKeyExpires })
+      setCreatedRawKey(res.raw_key)
+      setApiKeys((prev) => [res.api_key, ...prev])
+      toast.success("API Key created successfully")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to create API key"
+      toast.error(message)
+    } finally {
+      setCreatingApiKey(false)
+    }
+  }
+
+  const handleCopyApiKey = () => {
+    if (createdRawKey) {
+      navigator.clipboard.writeText(createdRawKey)
+      setCopiedApiKey(true)
+      toast.success("API Key copied to clipboard")
+      setTimeout(() => setCopiedApiKey(false), 2000)
+    }
+  }
+
+  const handleDeleteApiKey = async (id: string) => {
+    try {
+      await apiKeysApi.delete(id)
+      setApiKeys((prev) => prev.filter((k) => k.id !== id))
+      toast.success("API Key deleted")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete API key"
+      toast.error(message)
     }
   }
 
@@ -410,6 +478,67 @@ export function SettingsPage() {
                       </Button>
                     </div>
                   </form>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === "api-keys" && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <div>
+                    <CardTitle className="text-lg">API Keys</CardTitle>
+                    <CardDescription className="text-xs">
+                      Manage API keys for accessing prompts from external applications.
+                    </CardDescription>
+                  </div>
+                  <Button onClick={() => { setCreatedRawKey(null); setNewKeyName(""); setNewKeyExpires("30-days"); setShowApiKeyModal(true) }}>
+                    <Key className="mr-2 size-4" /> Create API Key
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {loadingApiKeys ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="size-6 animate-spin text-primary" />
+                    </div>
+                  ) : apiKeys.length === 0 ? (
+                    <div className="text-center py-8 text-xs text-muted-foreground">
+                      No API keys generated yet.
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Last Used</TableHead>
+                          <TableHead>Expires At</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {apiKeys.map((key) => (
+                          <TableRow key={key.id}>
+                            <TableCell className="font-medium text-sm">{key.name}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : "Never"}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {key.expires_at ? new Date(key.expires_at).toLocaleDateString() : "Never"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDeleteApiKey(key.id)}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -687,6 +816,85 @@ export function SettingsPage() {
               {targetRole === 60 ? "Confirm Promotion" : "Confirm Demotion"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Generate API Key */}
+      <Dialog open={showApiKeyModal} onOpenChange={setShowApiKeyModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="size-5 text-primary" /> Create API Key
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Generate a new API key to authenticate your external requests.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!createdRawKey ? (
+            <form onSubmit={handleCreateApiKey} className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="api-key-name" className="text-xs font-medium">
+                  Name
+                </Label>
+                <Input
+                  id="api-key-name"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="e.g. Production Client"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Expiration</Label>
+                <Select value={newKeyExpires} onValueChange={setNewKeyExpires}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7-days">7 Days</SelectItem>
+                    <SelectItem value="30-days">30 Days</SelectItem>
+                    <SelectItem value="90-days">90 Days</SelectItem>
+                    <SelectItem value="never">Never</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="ghost" onClick={() => setShowApiKeyModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={creatingApiKey}>
+                  {creatingApiKey && <Loader2 className="mr-2 size-4 animate-spin" />}
+                  Create Key
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className="p-3 bg-muted rounded-lg space-y-2">
+                <div className="text-xs font-medium text-amber-600 dark:text-amber-500 mb-2">
+                  <ShieldAlert className="inline mr-1 size-3" /> Please copy your API key now. You won't be able to see it again!
+                </div>
+                <div className="flex items-center justify-between text-xs font-medium">
+                  <span className="text-muted-foreground">Name: <strong className="text-foreground">{newKeyName}</strong></span>
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="flex-1 font-mono text-xs p-2 bg-background border rounded break-all select-all">
+                    {createdRawKey}
+                  </div>
+                  <Button size="sm" onClick={handleCopyApiKey} className="shrink-0">
+                    {copiedApiKey ? <Check className="size-4 text-green-500" /> : <Copy className="size-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button onClick={() => setShowApiKeyModal(false)}>Done</Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

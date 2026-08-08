@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"time"
@@ -64,6 +66,16 @@ type UpdatePasswordReq struct {
 	NewPassword     string `json:"new_password" validate:"required,min=6"`
 }
 
+type CreateAPIKeyReq struct {
+	Name      string `json:"name" validate:"required"`
+	ExpiresIn string `json:"expires_in"` // "7-days", "30-days", "90-days", "never"
+}
+
+type CreateAPIKeyResponse struct {
+	APIKey *models.APIKey `json:"api_key"`
+	RawKey string         `json:"raw_key"`
+}
+
 type AuthResponse struct {
 	ID       uuid.UUID `json:"id"`
 	Email    string    `json:"email"`
@@ -96,6 +108,11 @@ type Usecase interface {
 	JoinTenant(ctx context.Context, userID uuid.UUID, req JoinTenantReq) (*models.Tenant, error)
 	UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileReq) error
 	UpdatePassword(ctx context.Context, userID uuid.UUID, req UpdatePasswordReq) error
+	
+	CreateAPIKey(ctx context.Context, userID uuid.UUID, req CreateAPIKeyReq) (*CreateAPIKeyResponse, error)
+	GetAPIKeys(ctx context.Context, userID uuid.UUID) ([]models.APIKey, error)
+	DeleteAPIKey(ctx context.Context, userID, keyID uuid.UUID) error
+	ValidateAPIKey(ctx context.Context, rawKey string) (uuid.UUID, error)
 }
 
 type usecase struct {
@@ -383,3 +400,69 @@ func (u *usecase) UpdatePassword(ctx context.Context, userID uuid.UUID, req Upda
 
 	return u.repo.UpdateUserPassword(ctx, userID, string(newBytes))
 }
+
+func (u *usecase) CreateAPIKey(ctx context.Context, userID uuid.UUID, req CreateAPIKeyReq) (*CreateAPIKeyResponse, error) {
+	rawKey := "ak-" + strings.ReplaceAll(uuid.New().String(), "-", "")
+	
+	// Create SHA256 hash for storage
+	hash := sha256.Sum256([]byte(rawKey))
+	keyHash := hex.EncodeToString(hash[:])
+
+	var expiresAt *time.Time
+	if req.ExpiresIn != "never" && req.ExpiresIn != "" {
+		days := 30
+		switch req.ExpiresIn {
+		case "7-days":
+			days = 7
+		case "30-days":
+			days = 30
+		case "90-days":
+			days = 90
+		}
+		t := time.Now().AddDate(0, 0, days)
+		expiresAt = &t
+	}
+
+	apiKey, err := u.repo.CreateAPIKey(ctx, userID, req.Name, keyHash, expiresAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CreateAPIKeyResponse{
+		APIKey: apiKey,
+		RawKey: rawKey,
+	}, nil
+}
+
+func (u *usecase) GetAPIKeys(ctx context.Context, userID uuid.UUID) ([]models.APIKey, error) {
+	return u.repo.GetAPIKeys(ctx, userID)
+}
+
+func (u *usecase) DeleteAPIKey(ctx context.Context, userID, keyID uuid.UUID) error {
+	return u.repo.DeleteAPIKey(ctx, userID, keyID)
+}
+
+func (u *usecase) ValidateAPIKey(ctx context.Context, rawKey string) (uuid.UUID, error) {
+	hash := sha256.Sum256([]byte(rawKey))
+	keyHash := hex.EncodeToString(hash[:])
+
+	apiKey, err := u.repo.GetAPIKeyByHash(ctx, keyHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return uuid.Nil, ErrInvalidCredentials
+		}
+		return uuid.Nil, err
+	}
+
+	if apiKey.ExpiresAt != nil && time.Now().After(*apiKey.ExpiresAt) {
+		return uuid.Nil, ErrInvalidCredentials
+	}
+
+	// Async update last used at so we don't block the auth flow
+	go func() {
+		_ = u.repo.UpdateAPIKeyLastUsed(context.Background(), apiKey.ID)
+	}()
+
+	return apiKey.UserID, nil
+}
+

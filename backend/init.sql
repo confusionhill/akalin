@@ -41,6 +41,17 @@ CREATE TABLE tenant_invitations (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 2d. User API Keys table (For external API access)
+CREATE TABLE api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    key_hash VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    last_used_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 ALTER TABLE tenants ADD CONSTRAINT fk_tenants_master_user FOREIGN KEY (master_user_id) REFERENCES users(id) ON DELETE SET NULL;
 
 -- 3. Projects table
@@ -63,6 +74,14 @@ CREATE TABLE system_prompts (
     version INTEGER NOT NULL,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4b. Project Publications table (Traffic Splitting Config)
+CREATE TABLE project_publications (
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    prompt_id UUID REFERENCES system_prompts(id) ON DELETE CASCADE,
+    traffic_weight INTEGER NOT NULL,
+    PRIMARY KEY (project_id, prompt_id)
 );
 
 -- 5. Evaluation Prompts table (Versioned Rubrics)
@@ -216,6 +235,7 @@ CREATE TABLE llm_models (
 -- Indexing for performance
 CREATE INDEX idx_projects_tenant ON projects(tenant_id);
 CREATE INDEX idx_system_prompts_project ON system_prompts(project_id);
+CREATE INDEX idx_project_publications_project ON project_publications(project_id);
 CREATE INDEX idx_evaluation_prompts_project ON evaluation_prompts(project_id);
 CREATE INDEX idx_test_cases_project ON test_cases(project_id);
 CREATE INDEX idx_provider_configs_tenant ON provider_configs(tenant_id);

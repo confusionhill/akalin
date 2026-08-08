@@ -23,6 +23,10 @@ import type {
   UpdateProfileInput,
   UpdatePasswordInput,
   ModelPerformanceSummary,
+  APIKey,
+  CreateAPIKeyInput,
+  CreateAPIKeyResponse,
+  PublishSystemPromptsInput,
 } from "./types"
 
 export const authApi = {
@@ -74,6 +78,8 @@ export const systemPromptsApi = {
       `/projects/${projectId}/prompts/${promptId}`,
       body,
     ),
+  publish: (projectId: string, body: PublishSystemPromptsInput) =>
+    http.post<void>(`/projects/${projectId}/prompts/publish`, body),
 }
 
 export const evaluationPromptsApi = {
@@ -145,6 +151,12 @@ export const evaluationsApi = {
     http.post<void>(`/projects/${projectId}/evaluations/${runId}/cancel`, {}),
   summary: (projectId: string) =>
     http.get<ModelPerformanceSummary[]>(`/projects/${projectId}/evaluations-summary`),
+}
+
+export const apiKeysApi = {
+  list: () => http.get<APIKey[]>("/users/me/api-keys"),
+  create: (body: CreateAPIKeyInput) => http.post<CreateAPIKeyResponse>("/users/me/api-keys", body),
+  delete: (id: string) => http.del<void>(`/users/me/api-keys/${id}`),
 }
 
 export const evaluationConfigsApi = {

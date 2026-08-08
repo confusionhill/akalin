@@ -27,6 +27,13 @@ type Repository interface {
 	UpdateUserProfile(ctx context.Context, userID uuid.UUID, email, handle, fullName string) error
 	UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error
 	UpdateTenantUserRole(ctx context.Context, tenantID, userID uuid.UUID, accessRole int) error
+
+	// API Keys
+	CreateAPIKey(ctx context.Context, userID uuid.UUID, name, keyHash string, expiresAt *time.Time) (*models.APIKey, error)
+	GetAPIKeys(ctx context.Context, userID uuid.UUID) ([]models.APIKey, error)
+	DeleteAPIKey(ctx context.Context, userID, keyID uuid.UUID) error
+	GetAPIKeyByHash(ctx context.Context, keyHash string) (*models.APIKey, error)
+	UpdateAPIKeyLastUsed(ctx context.Context, keyID uuid.UUID) error
 }
 
 type repository struct {
@@ -213,5 +220,50 @@ func (r *repository) UpdateUserPassword(ctx context.Context, userID uuid.UUID, p
 
 func (r *repository) UpdateTenantUserRole(ctx context.Context, tenantID, userID uuid.UUID, accessRole int) error {
 	_, err := r.db.ExecContext(ctx, "UPDATE tenant_users SET access_role = $3 WHERE tenant_id = $1 AND user_id = $2", tenantID, userID, accessRole)
+	return err
+}
+
+func (r *repository) CreateAPIKey(ctx context.Context, userID uuid.UUID, name, keyHash string, expiresAt *time.Time) (*models.APIKey, error) {
+	var apiKey models.APIKey
+	query := `
+		INSERT INTO api_keys (user_id, name, key_hash, expires_at)
+		VALUES ($1, $2, $3, $4)
+		RETURNING *
+	`
+	err := r.db.GetContext(ctx, &apiKey, query, userID, name, keyHash, expiresAt)
+	if err != nil {
+		return nil, err
+	}
+	return &apiKey, nil
+}
+
+func (r *repository) GetAPIKeys(ctx context.Context, userID uuid.UUID) ([]models.APIKey, error) {
+	var keys []models.APIKey
+	err := r.db.SelectContext(ctx, &keys, "SELECT * FROM api_keys WHERE user_id = $1 ORDER BY created_at DESC", userID)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil {
+		keys = []models.APIKey{}
+	}
+	return keys, nil
+}
+
+func (r *repository) DeleteAPIKey(ctx context.Context, userID, keyID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM api_keys WHERE id = $1 AND user_id = $2", keyID, userID)
+	return err
+}
+
+func (r *repository) GetAPIKeyByHash(ctx context.Context, keyHash string) (*models.APIKey, error) {
+	var apiKey models.APIKey
+	err := r.db.GetContext(ctx, &apiKey, "SELECT * FROM api_keys WHERE key_hash = $1", keyHash)
+	if err != nil {
+		return nil, err
+	}
+	return &apiKey, nil
+}
+
+func (r *repository) UpdateAPIKeyLastUsed(ctx context.Context, keyID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, "UPDATE api_keys SET last_used_at = NOW() WHERE id = $1", keyID)
 	return err
 }
